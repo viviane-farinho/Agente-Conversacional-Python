@@ -9,28 +9,44 @@
         max-width: 100%;
         margin: 0 auto;
     }
+
     .fc-event {
         border: none !important;
         padding: 2px 4px;
     }
-    .fc-event-confirmado { background-color: #22c55e !important; }
-    .fc-event-agendado { background-color: #f59e0b !important; }
-    .fc-event-cancelado { background-color: #ef4444 !important; opacity: 0.6; }
+
+    .fc-event-confirmado {
+        background-color: #22c55e !important;
+    }
+
+    .fc-event-agendado {
+        background-color: #f59e0b !important;
+    }
+
+    .fc-event-cancelado {
+        background-color: #ef4444 !important;
+        opacity: 0.6;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-calendar3 me-2"></i>Agenda</h2>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAgendamento">
+<div class="d-flex justify-content-between align-items-center mb-5">
+    <div>
+        <h2 class="fw-bold mb-1">Agenda</h2>
+        <p class="text-secondary mb-0">Gerencie seus compromissos</p>
+    </div>
+    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAgendamento">
         <i class="bi bi-plus-lg me-1"></i> Novo Agendamento
     </button>
 </div>
 
 <div class="row">
     <div class="col-md-3">
-        <div class="card mb-4">
-            <div class="card-header">Filtros</div>
+        <div class="card mb-4 border-0">
+            <div class="card-header border-0 pb-0">
+                <h5 class="mb-0 fw-bold">Filtros</h5>
+            </div>
             <div class="card-body">
                 <div class="mb-3">
                     <label class="form-label">Profissional</label>
@@ -50,8 +66,10 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header">Legenda</div>
+        <div class="card border-0">
+            <div class="card-header border-0 pb-0">
+                <h5 class="mb-0 fw-bold">Legenda</h5>
+            </div>
             <div class="card-body">
                 <div class="d-flex align-items-center mb-2">
                     <span class="badge bg-warning me-2">&nbsp;&nbsp;&nbsp;</span>
@@ -70,301 +88,305 @@
     </div>
 
     <div class="col-md-9">
-        <div class="card">
-            <div class="card-body">
-                <div id="calendar"></div>
+        <div class="col-md-9">
+            <div class="card border-0">
+                <div class="card-body">
+                    <div id="calendar"></div>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Modal Agendamento -->
-<div class="modal fade" id="modalAgendamento" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalTitle">Novo Agendamento</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formAgendamento">
-                    <input type="hidden" id="agendamentoId">
-                    <div class="mb-3">
-                        <label class="form-label">Profissional *</label>
-                        <select class="form-select" id="profissionalId" required>
-                            <option value="">Selecione...</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Nome do Paciente *</label>
-                        <input type="text" class="form-control" id="pacienteNome" required>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Telefone</label>
-                            <input type="text" class="form-control" id="pacienteTelefone" placeholder="5511999999999">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Data Nascimento</label>
-                            <input type="date" class="form-control" id="pacienteNascimento">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Data *</label>
-                            <input type="date" class="form-control" id="agendamentoData" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Horario *</label>
-                            <select class="form-select" id="agendamentoHora" required>
-                                <option value="">Selecione a data primeiro</option>
+    <!-- Modal Agendamento -->
+    <div class="modal fade" id="modalAgendamento" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Novo Agendamento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formAgendamento">
+                        <input type="hidden" id="agendamentoId">
+                        <div class="mb-3">
+                            <label class="form-label">Profissional *</label>
+                            <select class="form-select" id="profissionalId" required>
+                                <option value="">Selecione...</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Duracao (minutos)</label>
-                        <select class="form-select" id="duracaoMinutos">
-                            <option value="30">30 minutos</option>
-                            <option value="45">45 minutos</option>
-                            <option value="60">1 hora</option>
-                            <option value="90">1h30</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Observacoes</label>
-                        <textarea class="form-control" id="observacoes" rows="2"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger d-none" id="btnCancelar" onclick="cancelarAgendamento()">
-                    <i class="bi bi-x-circle me-1"></i> Cancelar Consulta
-                </button>
-                <button type="button" class="btn btn-success d-none" id="btnConfirmar" onclick="confirmarAgendamento()">
-                    <i class="bi bi-check-circle me-1"></i> Confirmar
-                </button>
-                <button type="button" class="btn btn-primary" id="btnSalvar" onclick="salvarAgendamento()">
-                    <i class="bi bi-save me-1"></i> Salvar
-                </button>
+                        <div class="mb-3">
+                            <label class="form-label">Nome do Paciente *</label>
+                            <input type="text" class="form-control" id="pacienteNome" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Telefone</label>
+                                <input type="text" class="form-control" id="pacienteTelefone"
+                                    placeholder="5511999999999">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Data Nascimento</label>
+                                <input type="date" class="form-control" id="pacienteNascimento">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Data *</label>
+                                <input type="date" class="form-control" id="agendamentoData" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Horario *</label>
+                                <select class="form-select" id="agendamentoHora" required>
+                                    <option value="">Selecione a data primeiro</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Duracao (minutos)</label>
+                            <select class="form-select" id="duracaoMinutos">
+                                <option value="30">30 minutos</option>
+                                <option value="45">45 minutos</option>
+                                <option value="60">1 hora</option>
+                                <option value="90">1h30</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Observacoes</label>
+                            <textarea class="form-control" id="observacoes" rows="2"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger d-none" id="btnCancelar"
+                        onclick="cancelarAgendamento()">
+                        <i class="bi bi-x-circle me-1"></i> Cancelar Consulta
+                    </button>
+                    <button type="button" class="btn btn-success d-none" id="btnConfirmar"
+                        onclick="confirmarAgendamento()">
+                        <i class="bi bi-check-circle me-1"></i> Confirmar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="btnSalvar" onclick="salvarAgendamento()">
+                        <i class="bi bi-save me-1"></i> Salvar
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-</div>
-{% endblock %}
+    {% endblock %}
 
-{% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/pt-br.global.min.js"></script>
-<script>
-let calendar;
-let profissionais = [];
+    {% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/pt-br.global.min.js"></script>
+    <script>
+        let calendar;
+        let profissionais = [];
 
-document.addEventListener('DOMContentLoaded', async function() {
-    // Carrega profissionais
-    await loadProfissionais();
+        document.addEventListener('DOMContentLoaded', async function () {
+            // Carrega profissionais
+            await loadProfissionais();
 
-    // Inicializa calendario
-    const calendarEl = document.getElementById('calendar');
-    calendar = new FullCalendar.Calendar(calendarEl, {
-        locale: 'pt-br',
-        timeZone: 'UTC',
-        initialView: 'timeGridWeek',
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-        },
-        slotMinTime: '07:00:00',
-        slotMaxTime: '20:00:00',
-        allDaySlot: false,
-        selectable: true,
-        selectMirror: true,
-        events: fetchEvents,
-        eventClick: function(info) {
-            editarAgendamento(info.event.id);
-        },
-        select: function(info) {
-            novoAgendamento(info.start);
-        },
-        eventClassNames: function(arg) {
-            return [`fc-event-${arg.event.extendedProps.status}`];
-        }
-    });
-    calendar.render();
+            // Inicializa calendario
+            const calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                locale: 'pt-br',
+                timeZone: 'UTC',
+                initialView: 'timeGridWeek',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                slotMinTime: '07:00:00',
+                slotMaxTime: '20:00:00',
+                allDaySlot: false,
+                selectable: true,
+                selectMirror: true,
+                events: fetchEvents,
+                eventClick: function (info) {
+                    editarAgendamento(info.event.id);
+                },
+                select: function (info) {
+                    novoAgendamento(info.start);
+                },
+                eventClassNames: function (arg) {
+                    return [`fc-event-${arg.event.extendedProps.status}`];
+                }
+            });
+            calendar.render();
 
-    // Filtros
-    document.getElementById('filtroProfissional').addEventListener('change', () => calendar.refetchEvents());
-    document.getElementById('filtroStatus').addEventListener('change', () => calendar.refetchEvents());
+            // Filtros
+            document.getElementById('filtroProfissional').addEventListener('change', () => calendar.refetchEvents());
+            document.getElementById('filtroStatus').addEventListener('change', () => calendar.refetchEvents());
 
-    // Busca horarios disponiveis ao mudar data/profissional
-    document.getElementById('agendamentoData').addEventListener('change', buscarHorariosDisponiveis);
-    document.getElementById('profissionalId').addEventListener('change', buscarHorariosDisponiveis);
-});
+            // Busca horarios disponiveis ao mudar data/profissional
+            document.getElementById('agendamentoData').addEventListener('change', buscarHorariosDisponiveis);
+            document.getElementById('profissionalId').addEventListener('change', buscarHorariosDisponiveis);
+        });
 
-async function loadProfissionais() {
-    try {
-        const data = await apiCall('/api/admin/profissionais');
-        profissionais = data.profissionais || [];
+        async function loadProfissionais() {
+            try {
+                const data = await apiCall('/api/admin/profissionais');
+                profissionais = data.profissionais || [];
 
-        const options = profissionais.map(p => `<option value="${p.id}">${p.nome} - ${p.especialidade || ''}</option>`).join('');
+                const options = profissionais.map(p => `<option value="${p.id}">${p.nome} - ${p.especialidade || ''}</option>`).join('');
 
-        document.getElementById('filtroProfissional').innerHTML = '<option value="">Todos</option>' + options;
-        document.getElementById('profissionalId').innerHTML = '<option value="">Selecione...</option>' + options;
-    } catch (error) {
-        console.error('Erro ao carregar profissionais:', error);
-    }
-}
-
-async function fetchEvents(info, successCallback, failureCallback) {
-    try {
-        const profId = document.getElementById('filtroProfissional').value;
-        const status = document.getElementById('filtroStatus').value;
-
-        let url = `/api/admin/agendamentos?data_inicio=${info.startStr}&data_fim=${info.endStr}`;
-        if (profId) url += `&profissional_id=${profId}`;
-        if (status) url += `&status=${status}`;
-
-        const data = await apiCall(url);
-        const events = (data.agendamentos || []).map(ag => ({
-            id: ag.id,
-            title: ag.paciente_nome,
-            start: ag.data_hora,
-            end: new Date(new Date(ag.data_hora).getTime() + ag.duracao_minutos * 60000).toISOString(),
-            extendedProps: {
-                status: ag.confirmado ? 'confirmado' : ag.status,
-                profissional: ag.profissional_nome
+                document.getElementById('filtroProfissional').innerHTML = '<option value="">Todos</option>' + options;
+                document.getElementById('profissionalId').innerHTML = '<option value="">Selecione...</option>' + options;
+            } catch (error) {
+                console.error('Erro ao carregar profissionais:', error);
             }
-        }));
-        successCallback(events);
-    } catch (error) {
-        failureCallback(error);
-    }
-}
-
-function novoAgendamento(date = null) {
-    document.getElementById('modalTitle').textContent = 'Novo Agendamento';
-    document.getElementById('formAgendamento').reset();
-    document.getElementById('agendamentoId').value = '';
-    document.getElementById('btnCancelar').classList.add('d-none');
-    document.getElementById('btnConfirmar').classList.add('d-none');
-
-    if (date) {
-        document.getElementById('agendamentoData').value = date.toISOString().split('T')[0];
-        buscarHorariosDisponiveis();
-    }
-
-    new bootstrap.Modal(document.getElementById('modalAgendamento')).show();
-}
-
-async function editarAgendamento(id) {
-    try {
-        const data = await apiCall(`/api/admin/agendamentos/${id}`);
-        const ag = data.agendamento;
-
-        document.getElementById('modalTitle').textContent = 'Editar Agendamento';
-        document.getElementById('agendamentoId').value = ag.id;
-        document.getElementById('profissionalId').value = ag.profissional_id;
-        document.getElementById('pacienteNome').value = ag.paciente_nome;
-        document.getElementById('pacienteTelefone').value = ag.paciente_telefone || '';
-        document.getElementById('pacienteNascimento').value = ag.paciente_nascimento || '';
-        document.getElementById('agendamentoData').value = ag.data_hora.split('T')[0];
-        document.getElementById('duracaoMinutos').value = ag.duracao_minutos;
-        document.getElementById('observacoes').value = ag.observacoes || '';
-
-        await buscarHorariosDisponiveis();
-        document.getElementById('agendamentoHora').value = ag.data_hora.split('T')[1].substring(0, 5);
-
-        document.getElementById('btnCancelar').classList.remove('d-none');
-        document.getElementById('btnConfirmar').classList.toggle('d-none', ag.confirmado);
-
-        new bootstrap.Modal(document.getElementById('modalAgendamento')).show();
-    } catch (error) {
-        showToast('Erro ao carregar agendamento: ' + error.message, 'danger');
-    }
-}
-
-async function buscarHorariosDisponiveis() {
-    const profId = document.getElementById('profissionalId').value;
-    const data = document.getElementById('agendamentoData').value;
-    const select = document.getElementById('agendamentoHora');
-
-    if (!profId || !data) {
-        select.innerHTML = '<option value="">Selecione profissional e data</option>';
-        return;
-    }
-
-    try {
-        const result = await apiCall(`/api/admin/horarios-disponiveis?profissional_id=${profId}&data=${data}`);
-        const horarios = result.horarios || [];
-
-        if (horarios.length === 0) {
-            select.innerHTML = '<option value="">Nenhum horario disponivel</option>';
-        } else {
-            select.innerHTML = '<option value="">Selecione...</option>' +
-                horarios.map(h => `<option value="${h}">${h}</option>`).join('');
-        }
-    } catch (error) {
-        select.innerHTML = '<option value="">Erro ao buscar horarios</option>';
-    }
-}
-
-async function salvarAgendamento() {
-    const id = document.getElementById('agendamentoId').value;
-    const data = {
-        profissional_id: parseInt(document.getElementById('profissionalId').value),
-        paciente_nome: document.getElementById('pacienteNome').value,
-        paciente_telefone: document.getElementById('pacienteTelefone').value || null,
-        paciente_nascimento: document.getElementById('pacienteNascimento').value || null,
-        data_hora: `${document.getElementById('agendamentoData').value}T${document.getElementById('agendamentoHora').value}:00`,
-        duracao_minutos: parseInt(document.getElementById('duracaoMinutos').value),
-        observacoes: document.getElementById('observacoes').value || null
-    };
-
-    try {
-        if (id) {
-            await apiCall(`/api/admin/agendamentos/${id}`, 'PUT', data);
-            showToast('Agendamento atualizado com sucesso!');
-        } else {
-            await apiCall('/api/admin/agendamentos', 'POST', data);
-            showToast('Agendamento criado com sucesso!');
         }
 
-        bootstrap.Modal.getInstance(document.getElementById('modalAgendamento')).hide();
-        calendar.refetchEvents();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
-    }
-}
+        async function fetchEvents(info, successCallback, failureCallback) {
+            try {
+                const profId = document.getElementById('filtroProfissional').value;
+                const status = document.getElementById('filtroStatus').value;
 
-async function cancelarAgendamento() {
-    const id = document.getElementById('agendamentoId').value;
-    if (!id) return;
+                let url = `/api/admin/agendamentos?data_inicio=${info.startStr}&data_fim=${info.endStr}`;
+                if (profId) url += `&profissional_id=${profId}`;
+                if (status) url += `&status=${status}`;
 
-    if (!confirm('Tem certeza que deseja cancelar este agendamento?')) return;
+                const data = await apiCall(url);
+                const events = (data.agendamentos || []).map(ag => ({
+                    id: ag.id,
+                    title: ag.paciente_nome,
+                    start: ag.data_hora,
+                    end: new Date(new Date(ag.data_hora).getTime() + ag.duracao_minutos * 60000).toISOString(),
+                    extendedProps: {
+                        status: ag.confirmado ? 'confirmado' : ag.status,
+                        profissional: ag.profissional_nome
+                    }
+                }));
+                successCallback(events);
+            } catch (error) {
+                failureCallback(error);
+            }
+        }
 
-    try {
-        await apiCall(`/api/admin/agendamentos/${id}/cancelar`, 'POST');
-        showToast('Agendamento cancelado!');
-        bootstrap.Modal.getInstance(document.getElementById('modalAgendamento')).hide();
-        calendar.refetchEvents();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
-    }
-}
+        function novoAgendamento(date = null) {
+            document.getElementById('modalTitle').textContent = 'Novo Agendamento';
+            document.getElementById('formAgendamento').reset();
+            document.getElementById('agendamentoId').value = '';
+            document.getElementById('btnCancelar').classList.add('d-none');
+            document.getElementById('btnConfirmar').classList.add('d-none');
 
-async function confirmarAgendamento() {
-    const id = document.getElementById('agendamentoId').value;
-    if (!id) return;
+            if (date) {
+                document.getElementById('agendamentoData').value = date.toISOString().split('T')[0];
+                buscarHorariosDisponiveis();
+            }
 
-    try {
-        await apiCall(`/api/admin/agendamentos/${id}/confirmar`, 'POST');
-        showToast('Agendamento confirmado!');
-        bootstrap.Modal.getInstance(document.getElementById('modalAgendamento')).hide();
-        calendar.refetchEvents();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
-    }
-}
-</script>
-{% endblock %}
+            new bootstrap.Modal(document.getElementById('modalAgendamento')).show();
+        }
+
+        async function editarAgendamento(id) {
+            try {
+                const data = await apiCall(`/api/admin/agendamentos/${id}`);
+                const ag = data.agendamento;
+
+                document.getElementById('modalTitle').textContent = 'Editar Agendamento';
+                document.getElementById('agendamentoId').value = ag.id;
+                document.getElementById('profissionalId').value = ag.profissional_id;
+                document.getElementById('pacienteNome').value = ag.paciente_nome;
+                document.getElementById('pacienteTelefone').value = ag.paciente_telefone || '';
+                document.getElementById('pacienteNascimento').value = ag.paciente_nascimento || '';
+                document.getElementById('agendamentoData').value = ag.data_hora.split('T')[0];
+                document.getElementById('duracaoMinutos').value = ag.duracao_minutos;
+                document.getElementById('observacoes').value = ag.observacoes || '';
+
+                await buscarHorariosDisponiveis();
+                document.getElementById('agendamentoHora').value = ag.data_hora.split('T')[1].substring(0, 5);
+
+                document.getElementById('btnCancelar').classList.remove('d-none');
+                document.getElementById('btnConfirmar').classList.toggle('d-none', ag.confirmado);
+
+                new bootstrap.Modal(document.getElementById('modalAgendamento')).show();
+            } catch (error) {
+                showToast('Erro ao carregar agendamento: ' + error.message, 'danger');
+            }
+        }
+
+        async function buscarHorariosDisponiveis() {
+            const profId = document.getElementById('profissionalId').value;
+            const data = document.getElementById('agendamentoData').value;
+            const select = document.getElementById('agendamentoHora');
+
+            if (!profId || !data) {
+                select.innerHTML = '<option value="">Selecione profissional e data</option>';
+                return;
+            }
+
+            try {
+                const result = await apiCall(`/api/admin/horarios-disponiveis?profissional_id=${profId}&data=${data}`);
+                const horarios = result.horarios || [];
+
+                if (horarios.length === 0) {
+                    select.innerHTML = '<option value="">Nenhum horario disponivel</option>';
+                } else {
+                    select.innerHTML = '<option value="">Selecione...</option>' +
+                        horarios.map(h => `<option value="${h}">${h}</option>`).join('');
+                }
+            } catch (error) {
+                select.innerHTML = '<option value="">Erro ao buscar horarios</option>';
+            }
+        }
+
+        async function salvarAgendamento() {
+            const id = document.getElementById('agendamentoId').value;
+            const data = {
+                profissional_id: parseInt(document.getElementById('profissionalId').value),
+                paciente_nome: document.getElementById('pacienteNome').value,
+                paciente_telefone: document.getElementById('pacienteTelefone').value || null,
+                paciente_nascimento: document.getElementById('pacienteNascimento').value || null,
+                data_hora: `${document.getElementById('agendamentoData').value}T${document.getElementById('agendamentoHora').value}:00`,
+                duracao_minutos: parseInt(document.getElementById('duracaoMinutos').value),
+                observacoes: document.getElementById('observacoes').value || null
+            };
+
+            try {
+                if (id) {
+                    await apiCall(`/api/admin/agendamentos/${id}`, 'PUT', data);
+                    showToast('Agendamento atualizado com sucesso!');
+                } else {
+                    await apiCall('/api/admin/agendamentos', 'POST', data);
+                    showToast('Agendamento criado com sucesso!');
+                }
+
+                bootstrap.Modal.getInstance(document.getElementById('modalAgendamento')).hide();
+                calendar.refetchEvents();
+            } catch (error) {
+                showToast('Erro: ' + error.message, 'danger');
+            }
+        }
+
+        async function cancelarAgendamento() {
+            const id = document.getElementById('agendamentoId').value;
+            if (!id) return;
+
+            if (!confirm('Tem certeza que deseja cancelar este agendamento?')) return;
+
+            try {
+                await apiCall(`/api/admin/agendamentos/${id}/cancelar`, 'POST');
+                showToast('Agendamento cancelado!');
+                bootstrap.Modal.getInstance(document.getElementById('modalAgendamento')).hide();
+                calendar.refetchEvents();
+            } catch (error) {
+                showToast('Erro: ' + error.message, 'danger');
+            }
+        }
+
+        async function confirmarAgendamento() {
+            const id = document.getElementById('agendamentoId').value;
+            if (!id) return;
+
+            try {
+                await apiCall(`/api/admin/agendamentos/${id}/confirmar`, 'POST');
+                showToast('Agendamento confirmado!');
+                bootstrap.Modal.getInstance(document.getElementById('modalAgendamento')).hide();
+                calendar.refetchEvents();
+            } catch (error) {
+                showToast('Erro: ' + error.message, 'danger');
+            }
+        }
+    </script>
+    {% endblock %}

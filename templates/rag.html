@@ -3,17 +3,22 @@
 {% block title %}Base de Conhecimento - Secretaria IA{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-database me-2"></i>Base de Conhecimento (RAG)</h2>
-    <button class="btn btn-primary" onclick="novoDocumento()">
+<div class="d-flex justify-content-between align-items-center mb-5">
+    <div>
+        <h2 class="fw-bold mb-1">Base de Conhecimento</h2>
+        <p class="text-secondary mb-0">Gerencie documentos para o RAG</p>
+    </div>
+    <button class="btn btn-primary shadow-sm" onclick="novoDocumento()">
         <i class="bi bi-plus-lg me-1"></i> Novo Documento
     </button>
 </div>
 
 <div class="row">
     <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-header">Busca Semantica</div>
+        <div class="card mb-4 border-0">
+            <div class="card-header border-0 pb-0">
+                <h5 class="mb-0 fw-bold">Busca Semântica</h5>
+            </div>
             <div class="card-body">
                 <div class="mb-3">
                     <input type="text" class="form-control" id="buscaQuery" placeholder="Digite sua pergunta...">
@@ -29,8 +34,10 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header">Categorias</div>
+        <div class="card border-0">
+            <div class="card-header border-0 pb-0">
+                <h5 class="mb-0 fw-bold">Categorias</h5>
+            </div>
             <div class="card-body" id="listaCategorias">
                 <div class="text-muted small">Carregando...</div>
             </div>
@@ -38,9 +45,9 @@
     </div>
 
     <div class="col-md-8">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span>Documentos</span>
+        <div class="card border-0">
+            <div class="card-header d-flex justify-content-between align-items-center border-0 pb-0">
+                <h5 class="mb-0 fw-bold">Documentos</h5>
                 <div class="btn-group btn-group-sm">
                     <button class="btn btn-outline-secondary active" onclick="mostrarTodos()">Todos</button>
                 </div>
@@ -69,9 +76,9 @@
         </div>
 
         <!-- Resultados da busca -->
-        <div class="card mt-4 d-none" id="resultadosBusca">
-            <div class="card-header">
-                <span>Resultados da Busca</span>
+        <div class="card mt-4 d-none border-0" id="resultadosBusca">
+            <div class="card-header border-0 pb-0">
+                <h5 class="mb-0 fw-bold">Resultados da Busca</h5>
                 <button type="button" class="btn-close float-end" onclick="fecharResultados()"></button>
             </div>
             <div class="card-body" id="listaResultados">
@@ -126,61 +133,61 @@
 
 {% block extra_js %}
 <script>
-let documentos = [];
+    let documentos = [];
 
-document.addEventListener('DOMContentLoaded', function() {
-    carregarDocumentos();
-    carregarCategorias();
-});
+    document.addEventListener('DOMContentLoaded', function () {
+        carregarDocumentos();
+        carregarCategorias();
+    });
 
-async function carregarDocumentos(categoria = null) {
-    try {
-        let url = '/api/documentos';
-        if (categoria) url += `?categoria=${encodeURIComponent(categoria)}`;
+    async function carregarDocumentos(categoria = null) {
+        try {
+            let url = '/api/documentos';
+            if (categoria) url += `?categoria=${encodeURIComponent(categoria)}`;
 
-        const data = await apiCall(url);
-        documentos = data.documentos || [];
-        renderizarDocumentos();
-    } catch (error) {
-        showToast('Erro ao carregar documentos: ' + error.message, 'danger');
+            const data = await apiCall(url);
+            documentos = data.documentos || [];
+            renderizarDocumentos();
+        } catch (error) {
+            showToast('Erro ao carregar documentos: ' + error.message, 'danger');
+        }
     }
-}
 
-async function carregarCategorias() {
-    try {
-        const data = await apiCall('/api/documentos/categorias');
-        const categorias = data.categorias || [];
+    async function carregarCategorias() {
+        try {
+            const data = await apiCall('/api/documentos/categorias');
+            const categorias = data.categorias || [];
 
-        // Select de busca
-        const select = document.getElementById('buscaCategoria');
-        select.innerHTML = '<option value="">Todas as categorias</option>' +
-            categorias.map(c => `<option value="${c}">${c}</option>`).join('');
+            // Select de busca
+            const select = document.getElementById('buscaCategoria');
+            select.innerHTML = '<option value="">Todas as categorias</option>' +
+                categorias.map(c => `<option value="${c}">${c}</option>`).join('');
 
-        // Lista de categorias
-        const lista = document.getElementById('listaCategorias');
-        if (categorias.length === 0) {
-            lista.innerHTML = '<div class="text-muted small">Nenhuma categoria</div>';
-        } else {
-            lista.innerHTML = categorias.map(c => `
+            // Lista de categorias
+            const lista = document.getElementById('listaCategorias');
+            if (categorias.length === 0) {
+                lista.innerHTML = '<div class="text-muted small">Nenhuma categoria</div>';
+            } else {
+                lista.innerHTML = categorias.map(c => `
                 <a href="#" class="d-block mb-1" onclick="carregarDocumentos('${c}'); return false;">
                     <i class="bi bi-folder me-1"></i> ${c}
                 </a>
             `).join('');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar categorias:', error);
         }
-    } catch (error) {
-        console.error('Erro ao carregar categorias:', error);
-    }
-}
-
-function renderizarDocumentos() {
-    const tbody = document.getElementById('listaDocumentos');
-
-    if (documentos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Nenhum documento encontrado</td></tr>';
-        return;
     }
 
-    tbody.innerHTML = documentos.map(doc => `
+    function renderizarDocumentos() {
+        const tbody = document.getElementById('listaDocumentos');
+
+        if (documentos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Nenhum documento encontrado</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = documentos.map(doc => `
         <tr>
             <td>
                 <a href="#" onclick="editarDocumento(${doc.id}); return false;">
@@ -190,113 +197,115 @@ function renderizarDocumentos() {
             <td><span class="badge bg-secondary">${doc.categoria}</span></td>
             <td class="small text-muted">${new Date(doc.created_at).toLocaleDateString('pt-BR')}</td>
             <td>
-                <button class="btn btn-sm btn-outline-primary me-1" onclick="editarDocumento(${doc.id})">
-                    <i class="bi bi-pencil"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="confirmarExclusao(${doc.id})">
-                    <i class="bi bi-trash"></i>
-                </button>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary" onclick="editarDocumento(${doc.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="confirmarExclusao(${doc.id})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
             </td>
         </tr>
     `).join('');
-}
+    }
 
-function novoDocumento() {
-    document.getElementById('modalDocTitle').textContent = 'Novo Documento';
-    document.getElementById('formDocumento').reset();
-    document.getElementById('docId').value = '';
-    document.getElementById('btnExcluir').classList.add('d-none');
-    new bootstrap.Modal(document.getElementById('modalDocumento')).show();
-}
+    function novoDocumento() {
+        document.getElementById('modalDocTitle').textContent = 'Novo Documento';
+        document.getElementById('formDocumento').reset();
+        document.getElementById('docId').value = '';
+        document.getElementById('btnExcluir').classList.add('d-none');
+        new bootstrap.Modal(document.getElementById('modalDocumento')).show();
+    }
 
-async function editarDocumento(id) {
-    const doc = documentos.find(d => d.id === id);
-    if (!doc) return;
+    async function editarDocumento(id) {
+        const doc = documentos.find(d => d.id === id);
+        if (!doc) return;
 
-    document.getElementById('modalDocTitle').textContent = 'Editar Documento';
-    document.getElementById('docId').value = doc.id;
-    document.getElementById('docTitulo').value = doc.titulo;
-    document.getElementById('docCategoria').value = doc.categoria;
-    document.getElementById('docConteudo').value = doc.conteudo;
-    document.getElementById('btnExcluir').classList.remove('d-none');
+        document.getElementById('modalDocTitle').textContent = 'Editar Documento';
+        document.getElementById('docId').value = doc.id;
+        document.getElementById('docTitulo').value = doc.titulo;
+        document.getElementById('docCategoria').value = doc.categoria;
+        document.getElementById('docConteudo').value = doc.conteudo;
+        document.getElementById('btnExcluir').classList.remove('d-none');
 
-    new bootstrap.Modal(document.getElementById('modalDocumento')).show();
-}
+        new bootstrap.Modal(document.getElementById('modalDocumento')).show();
+    }
 
-async function salvarDocumento() {
-    const id = document.getElementById('docId').value;
-    const data = {
-        titulo: document.getElementById('docTitulo').value,
-        categoria: document.getElementById('docCategoria').value,
-        conteudo: document.getElementById('docConteudo').value
-    };
+    async function salvarDocumento() {
+        const id = document.getElementById('docId').value;
+        const data = {
+            titulo: document.getElementById('docTitulo').value,
+            categoria: document.getElementById('docCategoria').value,
+            conteudo: document.getElementById('docConteudo').value
+        };
 
-    try {
-        if (id) {
-            await apiCall(`/api/documentos/${id}`, 'PUT', data);
-            showToast('Documento atualizado com sucesso!');
-        } else {
-            await apiCall('/api/documentos', 'POST', data);
-            showToast('Documento criado com sucesso!');
+        try {
+            if (id) {
+                await apiCall(`/api/documentos/${id}`, 'PUT', data);
+                showToast('Documento atualizado com sucesso!');
+            } else {
+                await apiCall('/api/documentos', 'POST', data);
+                showToast('Documento criado com sucesso!');
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('modalDocumento')).hide();
+            carregarDocumentos();
+            carregarCategorias();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+
+    function confirmarExclusao(id) {
+        if (confirm('Tem certeza que deseja excluir este documento?')) {
+            excluirDocumentoById(id);
+        }
+    }
+
+    async function excluirDocumento() {
+        const id = document.getElementById('docId').value;
+        if (!id) return;
+        if (!confirm('Tem certeza que deseja excluir este documento?')) return;
+
+        await excluirDocumentoById(id);
+        bootstrap.Modal.getInstance(document.getElementById('modalDocumento')).hide();
+    }
+
+    async function excluirDocumentoById(id) {
+        try {
+            await apiCall(`/api/documentos/${id}`, 'DELETE');
+            showToast('Documento excluido!');
+            carregarDocumentos();
+            carregarCategorias();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+
+    async function buscarDocumentos() {
+        const query = document.getElementById('buscaQuery').value;
+        if (!query.trim()) {
+            showToast('Digite uma pergunta para buscar', 'warning');
+            return;
         }
 
-        bootstrap.Modal.getInstance(document.getElementById('modalDocumento')).hide();
-        carregarDocumentos();
-        carregarCategorias();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
-    }
-}
+        const categoria = document.getElementById('buscaCategoria').value;
 
-function confirmarExclusao(id) {
-    if (confirm('Tem certeza que deseja excluir este documento?')) {
-        excluirDocumentoById(id);
-    }
-}
+        try {
+            const data = await apiCall('/api/documentos/buscar', 'POST', {
+                query: query,
+                categoria: categoria || null,
+                limit: 5
+            });
 
-async function excluirDocumento() {
-    const id = document.getElementById('docId').value;
-    if (!id) return;
-    if (!confirm('Tem certeza que deseja excluir este documento?')) return;
+            const resultados = data.resultados || [];
+            const container = document.getElementById('listaResultados');
 
-    await excluirDocumentoById(id);
-    bootstrap.Modal.getInstance(document.getElementById('modalDocumento')).hide();
-}
-
-async function excluirDocumentoById(id) {
-    try {
-        await apiCall(`/api/documentos/${id}`, 'DELETE');
-        showToast('Documento excluido!');
-        carregarDocumentos();
-        carregarCategorias();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
-    }
-}
-
-async function buscarDocumentos() {
-    const query = document.getElementById('buscaQuery').value;
-    if (!query.trim()) {
-        showToast('Digite uma pergunta para buscar', 'warning');
-        return;
-    }
-
-    const categoria = document.getElementById('buscaCategoria').value;
-
-    try {
-        const data = await apiCall('/api/documentos/buscar', 'POST', {
-            query: query,
-            categoria: categoria || null,
-            limit: 5
-        });
-
-        const resultados = data.resultados || [];
-        const container = document.getElementById('listaResultados');
-
-        if (resultados.length === 0) {
-            container.innerHTML = '<div class="text-muted">Nenhum resultado encontrado.</div>';
-        } else {
-            container.innerHTML = resultados.map(r => `
+            if (resultados.length === 0) {
+                container.innerHTML = '<div class="text-muted">Nenhum resultado encontrado.</div>';
+            } else {
+                container.innerHTML = resultados.map(r => `
                 <div class="border-bottom pb-3 mb-3">
                     <div class="d-flex justify-content-between">
                         <h6 class="mb-1">${r.titulo}</h6>
@@ -306,20 +315,20 @@ async function buscarDocumentos() {
                     <p class="mb-0 small">${r.conteudo.substring(0, 300)}...</p>
                 </div>
             `).join('');
+            }
+
+            document.getElementById('resultadosBusca').classList.remove('d-none');
+        } catch (error) {
+            showToast('Erro na busca: ' + error.message, 'danger');
         }
-
-        document.getElementById('resultadosBusca').classList.remove('d-none');
-    } catch (error) {
-        showToast('Erro na busca: ' + error.message, 'danger');
     }
-}
 
-function fecharResultados() {
-    document.getElementById('resultadosBusca').classList.add('d-none');
-}
+    function fecharResultados() {
+        document.getElementById('resultadosBusca').classList.add('d-none');
+    }
 
-function mostrarTodos() {
-    carregarDocumentos();
-}
+    function mostrarTodos() {
+        carregarDocumentos();
+    }
 </script>
 {% endblock %}

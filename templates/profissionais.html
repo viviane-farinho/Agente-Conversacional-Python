@@ -3,14 +3,17 @@
 {% block title %}Profissionais - Secretaria IA{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-people me-2"></i>Profissionais</h2>
-    <button class="btn btn-primary" onclick="novoProfissional()">
+<div class="d-flex justify-content-between align-items-center mb-5">
+    <div>
+        <h2 class="fw-bold mb-1">Profissionais</h2>
+        <p class="text-secondary mb-0">Gerencie a equipe médica</p>
+    </div>
+    <button class="btn btn-primary shadow-sm" onclick="novoProfissional()">
         <i class="bi bi-plus-lg me-1"></i> Novo Profissional
     </button>
 </div>
 
-<div class="card">
+<div class="card border-0">
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover">
@@ -48,8 +51,7 @@
                     <input type="hidden" id="profId">
                     <div class="mb-3">
                         <label class="form-label">Nome Completo *</label>
-                        <input type="text" class="form-control" id="profNome" required
-                            placeholder="Ex: Dr. Joao Silva">
+                        <input type="text" class="form-control" id="profNome" required placeholder="Ex: Dr. Joao Silva">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Cargo</label>
@@ -79,31 +81,31 @@
 
 {% block extra_js %}
 <script>
-let profissionais = [];
+    let profissionais = [];
 
-document.addEventListener('DOMContentLoaded', function() {
-    carregarProfissionais();
-});
+    document.addEventListener('DOMContentLoaded', function () {
+        carregarProfissionais();
+    });
 
-async function carregarProfissionais() {
-    try {
-        const data = await apiCall('/api/admin/profissionais?apenas_ativos=false');
-        profissionais = data.profissionais || [];
-        renderizarProfissionais();
-    } catch (error) {
-        showToast('Erro ao carregar profissionais: ' + error.message, 'danger');
-    }
-}
-
-function renderizarProfissionais() {
-    const tbody = document.getElementById('listaProfissionais');
-
-    if (profissionais.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Nenhum profissional cadastrado</td></tr>';
-        return;
+    async function carregarProfissionais() {
+        try {
+            const data = await apiCall('/api/admin/profissionais?apenas_ativos=false');
+            profissionais = data.profissionais || [];
+            renderizarProfissionais();
+        } catch (error) {
+            showToast('Erro ao carregar profissionais: ' + error.message, 'danger');
+        }
     }
 
-    tbody.innerHTML = profissionais.map(p => `
+    function renderizarProfissionais() {
+        const tbody = document.getElementById('listaProfissionais');
+
+        if (profissionais.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Nenhum profissional cadastrado</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = profissionais.map(p => `
         <tr class="${!p.ativo ? 'table-secondary' : ''}">
             <td>
                 <div class="d-flex align-items-center">
@@ -123,88 +125,94 @@ function renderizarProfissionais() {
                 </span>
             </td>
             <td>
-                <button class="btn btn-sm btn-outline-primary me-1" onclick="editarProfissional(${p.id})">
-                    <i class="bi bi-pencil"></i>
-                </button>
-                ${!p.ativo ? `
-                    <button class="btn btn-sm btn-outline-success" onclick="reativarProfissional(${p.id})">
-                        <i class="bi bi-check-circle"></i>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary" onclick="editarProfissional(${p.id})">
+                        <i class="bi bi-pencil"></i>
                     </button>
-                ` : ''}
+                    ${!p.ativo ? `
+                        <button class="btn btn-sm btn-outline-success" onclick="reativarProfissional(${p.id})">
+                            <i class="bi bi-check-circle"></i>
+                        </button>
+                    ` : `
+                        <button class="btn btn-sm btn-outline-danger" onclick="document.getElementById('profId').value = ${p.id}; desativarProfissional()">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    `}
+                </div>
             </td>
         </tr>
     `).join('');
-}
+    }
 
-function novoProfissional() {
-    document.getElementById('modalProfTitle').textContent = 'Novo Profissional';
-    document.getElementById('formProfissional').reset();
-    document.getElementById('profId').value = '';
-    document.getElementById('btnDesativar').classList.add('d-none');
-    new bootstrap.Modal(document.getElementById('modalProfissional')).show();
-}
+    function novoProfissional() {
+        document.getElementById('modalProfTitle').textContent = 'Novo Profissional';
+        document.getElementById('formProfissional').reset();
+        document.getElementById('profId').value = '';
+        document.getElementById('btnDesativar').classList.add('d-none');
+        new bootstrap.Modal(document.getElementById('modalProfissional')).show();
+    }
 
-async function editarProfissional(id) {
-    const prof = profissionais.find(p => p.id === id);
-    if (!prof) return;
+    async function editarProfissional(id) {
+        const prof = profissionais.find(p => p.id === id);
+        if (!prof) return;
 
-    document.getElementById('modalProfTitle').textContent = 'Editar Profissional';
-    document.getElementById('profId').value = prof.id;
-    document.getElementById('profNome').value = prof.nome;
-    document.getElementById('profCargo').value = prof.cargo || '';
-    document.getElementById('profEspecialidade').value = prof.especialidade || '';
-    document.getElementById('btnDesativar').classList.toggle('d-none', !prof.ativo);
+        document.getElementById('modalProfTitle').textContent = 'Editar Profissional';
+        document.getElementById('profId').value = prof.id;
+        document.getElementById('profNome').value = prof.nome;
+        document.getElementById('profCargo').value = prof.cargo || '';
+        document.getElementById('profEspecialidade').value = prof.especialidade || '';
+        document.getElementById('btnDesativar').classList.toggle('d-none', !prof.ativo);
 
-    new bootstrap.Modal(document.getElementById('modalProfissional')).show();
-}
+        new bootstrap.Modal(document.getElementById('modalProfissional')).show();
+    }
 
-async function salvarProfissional() {
-    const id = document.getElementById('profId').value;
-    const data = {
-        nome: document.getElementById('profNome').value,
-        cargo: document.getElementById('profCargo').value || null,
-        especialidade: document.getElementById('profEspecialidade').value || null
-    };
+    async function salvarProfissional() {
+        const id = document.getElementById('profId').value;
+        const data = {
+            nome: document.getElementById('profNome').value,
+            cargo: document.getElementById('profCargo').value || null,
+            especialidade: document.getElementById('profEspecialidade').value || null
+        };
 
-    try {
-        if (id) {
-            await apiCall(`/api/admin/profissionais/${id}`, 'PUT', data);
-            showToast('Profissional atualizado com sucesso!');
-        } else {
-            await apiCall('/api/admin/profissionais', 'POST', data);
-            showToast('Profissional criado com sucesso!');
+        try {
+            if (id) {
+                await apiCall(`/api/admin/profissionais/${id}`, 'PUT', data);
+                showToast('Profissional atualizado com sucesso!');
+            } else {
+                await apiCall('/api/admin/profissionais', 'POST', data);
+                showToast('Profissional criado com sucesso!');
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('modalProfissional')).hide();
+            carregarProfissionais();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
         }
-
-        bootstrap.Modal.getInstance(document.getElementById('modalProfissional')).hide();
-        carregarProfissionais();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
     }
-}
 
-async function desativarProfissional() {
-    const id = document.getElementById('profId').value;
-    if (!id) return;
-    if (!confirm('Tem certeza que deseja desativar este profissional? Ele nao aparecera mais na agenda.')) return;
+    async function desativarProfissional() {
+        const id = document.getElementById('profId').value;
+        if (!id) return;
+        if (!confirm('Tem certeza que deseja desativar este profissional? Ele nao aparecera mais na agenda.')) return;
 
-    try {
-        await apiCall(`/api/admin/profissionais/${id}`, 'DELETE');
-        showToast('Profissional desativado!');
-        bootstrap.Modal.getInstance(document.getElementById('modalProfissional')).hide();
-        carregarProfissionais();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
+        try {
+            await apiCall(`/api/admin/profissionais/${id}`, 'DELETE');
+            showToast('Profissional desativado!');
+            bootstrap.Modal.getInstance(document.getElementById('modalProfissional')).hide();
+            carregarProfissionais();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
     }
-}
 
-async function reativarProfissional(id) {
-    try {
-        await apiCall(`/api/admin/profissionais/${id}`, 'PUT', { ativo: true });
-        showToast('Profissional reativado!');
-        carregarProfissionais();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
+    async function reativarProfissional(id) {
+        try {
+            await apiCall(`/api/admin/profissionais/${id}`, 'PUT', { ativo: true });
+            showToast('Profissional reativado!');
+            carregarProfissionais();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
     }
-}
 </script>
 {% endblock %}

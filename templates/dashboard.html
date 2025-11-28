@@ -3,69 +3,66 @@
 {% block title %}Dashboard - Secretaria IA{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Dashboard</h2>
-    <span class="text-muted">{{ data_atual }}</span>
+<div class="d-flex justify-content-between align-items-center mb-5">
+    <div>
+        <h2 class="fw-bold mb-1">Dashboard</h2>
+        <p class="text-secondary mb-0">Visão geral do sistema</p>
+    </div>
+    <div class="glass-badge px-3 py-2 rounded-pill bg-white bg-opacity-25 border border-white border-opacity-25">
+        <i class="bi bi-calendar-event me-2"></i>{{ data_atual }}
+    </div>
 </div>
 
 <div class="row g-4 mb-4">
     <div class="col-md-3">
-        <div class="card">
+        <div class="card h-100 border-0">
             <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 bg-primary bg-opacity-10 p-3 rounded">
-                        <i class="bi bi-calendar-check text-primary fs-4"></i>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <p class="text-muted mb-0 small">Agendamentos Hoje</p>
-                        <h4 class="mb-0" id="agendamentosHoje">-</h4>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-box bg-primary bg-opacity-10 text-primary p-3 rounded-circle">
+                        <i class="bi bi-calendar-check fs-4"></i>
                     </div>
                 </div>
+                <h3 class="fw-bold mb-1" id="agendamentosHoje">-</h3>
+                <p class="text-secondary mb-0 small">Agendamentos Hoje</p>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card">
+        <div class="card h-100 border-0">
             <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 bg-success bg-opacity-10 p-3 rounded">
-                        <i class="bi bi-check-circle text-success fs-4"></i>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <p class="text-muted mb-0 small">Confirmados</p>
-                        <h4 class="mb-0" id="confirmados">-</h4>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-box bg-success bg-opacity-10 text-success p-3 rounded-circle">
+                        <i class="bi bi-check-circle fs-4"></i>
                     </div>
                 </div>
+                <h3 class="fw-bold mb-1" id="confirmados">-</h3>
+                <p class="text-secondary mb-0 small">Confirmados</p>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card">
+        <div class="card h-100 border-0">
             <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 bg-info bg-opacity-10 p-3 rounded">
-                        <i class="bi bi-database text-info fs-4"></i>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <p class="text-muted mb-0 small">Docs na Base</p>
-                        <h4 class="mb-0" id="totalDocs">-</h4>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-box bg-info bg-opacity-10 text-info p-3 rounded-circle">
+                        <i class="bi bi-database fs-4"></i>
                     </div>
                 </div>
+                <h3 class="fw-bold mb-1" id="totalDocs">-</h3>
+                <p class="text-secondary mb-0 small">Docs na Base</p>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card">
+        <div class="card h-100 border-0">
             <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 bg-warning bg-opacity-10 p-3 rounded">
-                        <i class="bi bi-people text-warning fs-4"></i>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <p class="text-muted mb-0 small">Profissionais</p>
-                        <h4 class="mb-0" id="totalProfissionais">-</h4>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-box bg-warning bg-opacity-10 text-warning p-3 rounded-circle">
+                        <i class="bi bi-people fs-4"></i>
                     </div>
                 </div>
+                <h3 class="fw-bold mb-1" id="totalProfissionais">-</h3>
+                <p class="text-secondary mb-0 small">Profissionais</p>
             </div>
         </div>
     </div>
@@ -74,8 +71,8 @@
 <div class="row g-4">
     <div class="col-md-8">
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span>Proximos Agendamentos</span>
+            <div class="card-header d-flex justify-content-between align-items-center border-0 pb-0">
+                <h5 class="mb-0 fw-bold">Próximos Agendamentos</h5>
                 <a href="/admin/agenda" class="btn btn-sm btn-outline-primary">Ver Todos</a>
             </div>
             <div class="card-body">
@@ -104,30 +101,46 @@
 
     <div class="col-md-4">
         <div class="card">
-            <div class="card-header">
-                <span>Acesso Rapido</span>
+            <div class="card-header border-0 pb-0">
+                <h5 class="mb-0 fw-bold">Acesso Rápido</h5>
             </div>
             <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="/admin/agenda" class="btn btn-outline-primary">
-                        <i class="bi bi-plus-circle me-2"></i> Novo Agendamento
-                    </a>
-                    <a href="/admin/rag" class="btn btn-outline-primary">
-                        <i class="bi bi-file-earmark-plus me-2"></i> Adicionar Documento
-                    </a>
-                    <a href="/admin/prompts" class="btn btn-outline-primary">
-                        <i class="bi bi-pencil-square me-2"></i> Editar Prompts
-                    </a>
-                    <a href="/admin/profissionais" class="btn btn-outline-primary">
-                        <i class="bi bi-person-plus me-2"></i> Gerenciar Profissionais
-                    </a>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <a href="/admin/agenda"
+                            class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                            <i class="bi bi-plus-circle fs-4 mb-2"></i>
+                            <span class="small">Novo Agendamento</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="/admin/rag"
+                            class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                            <i class="bi bi-file-earmark-plus fs-4 mb-2"></i>
+                            <span class="small">Add Documento</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="/admin/prompts"
+                            class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                            <i class="bi bi-pencil-square fs-4 mb-2"></i>
+                            <span class="small">Editar Prompts</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="/admin/profissionais"
+                            class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                            <i class="bi bi-person-plus fs-4 mb-2"></i>
+                            <span class="small">Profissionais</span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="card mt-4">
-            <div class="card-header">
-                <span>Status do Sistema</span>
+            <div class="card-header border-0 pb-0">
+                <h5 class="mb-0 fw-bold">Status do Sistema</h5>
             </div>
             <div class="card-body">
                 <div class="d-flex align-items-center mb-2">
@@ -150,27 +163,27 @@
 
 {% block extra_js %}
 <script>
-async function loadDashboard() {
-    try {
-        // Stats
-        const stats = await apiCall('/api/admin/stats');
-        document.getElementById('agendamentosHoje').textContent = stats.agendamentos_hoje || 0;
-        document.getElementById('confirmados').textContent = stats.confirmados || 0;
-        document.getElementById('totalDocs').textContent = stats.total_documentos || 0;
-        document.getElementById('totalProfissionais').textContent = stats.total_profissionais || 0;
-        document.getElementById('statusDB').textContent = 'Online';
-        document.getElementById('statusDB').className = 'badge bg-success me-2';
-        document.getElementById('statusRAG').textContent = stats.rag_status ? 'Online' : 'Offline';
-        document.getElementById('statusRAG').className = `badge bg-${stats.rag_status ? 'success' : 'warning'} me-2`;
+    async function loadDashboard() {
+        try {
+            // Stats
+            const stats = await apiCall('/api/admin/stats');
+            document.getElementById('agendamentosHoje').textContent = stats.agendamentos_hoje || 0;
+            document.getElementById('confirmados').textContent = stats.confirmados || 0;
+            document.getElementById('totalDocs').textContent = stats.total_documentos || 0;
+            document.getElementById('totalProfissionais').textContent = stats.total_profissionais || 0;
+            document.getElementById('statusDB').textContent = 'Online';
+            document.getElementById('statusDB').className = 'badge bg-success me-2';
+            document.getElementById('statusRAG').textContent = stats.rag_status ? 'Online' : 'Offline';
+            document.getElementById('statusRAG').className = `badge bg-${stats.rag_status ? 'success' : 'warning'} me-2`;
 
-        // Proximos agendamentos
-        const proximos = await apiCall('/api/admin/proximos-agendamentos');
-        const tbody = document.getElementById('proximosAgendamentos');
+            // Proximos agendamentos
+            const proximos = await apiCall('/api/admin/proximos-agendamentos');
+            const tbody = document.getElementById('proximosAgendamentos');
 
-        if (proximos.agendamentos && proximos.agendamentos.length > 0) {
-            tbody.innerHTML = proximos.agendamentos.map(ag => `
+            if (proximos.agendamentos && proximos.agendamentos.length > 0) {
+                tbody.innerHTML = proximos.agendamentos.map(ag => `
                 <tr>
-                    <td>${new Date(ag.data_hora).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</td>
+                    <td>${new Date(ag.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
                     <td>${ag.paciente_nome}</td>
                     <td>${ag.profissional_nome}</td>
                     <td>
@@ -180,14 +193,14 @@ async function loadDashboard() {
                     </td>
                 </tr>
             `).join('');
-        } else {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Nenhum agendamento proximo</td></tr>';
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Nenhum agendamento proximo</td></tr>';
+            }
+        } catch (error) {
+            console.error('Erro ao carregar dashboard:', error);
         }
-    } catch (error) {
-        console.error('Erro ao carregar dashboard:', error);
     }
-}
 
-loadDashboard();
+    loadDashboard();
 </script>
 {% endblock %}

@@ -9,17 +9,21 @@
         font-size: 13px;
         line-height: 1.5;
     }
+
     .prompt-card {
         transition: all 0.2s;
     }
+
     .prompt-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
+
     .prompt-preview {
         max-height: 150px;
         overflow: hidden;
         position: relative;
     }
+
     .prompt-preview::after {
         content: '';
         position: absolute;
@@ -29,6 +33,7 @@
         height: 50px;
         background: linear-gradient(transparent, white);
     }
+
     .prompt-preview pre,
     .card-body pre {
         white-space: pre-wrap;
@@ -42,9 +47,12 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-chat-text me-2"></i>Prompts do Agente</h2>
-    <button class="btn btn-primary" onclick="novoPrompt()">
+<div class="d-flex justify-content-between align-items-center mb-5">
+    <div>
+        <h2 class="fw-bold mb-1">Prompts do Agente</h2>
+        <p class="text-secondary mb-0">Personalize o comportamento da IA</p>
+    </div>
+    <button class="btn btn-primary shadow-sm" onclick="novoPrompt()">
         <i class="bi bi-plus-lg me-1"></i> Novo Prompt
     </button>
 </div>
@@ -60,9 +68,9 @@
 </div>
 
 <!-- Prompt Principal (System) -->
-<div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-star-fill text-warning me-2"></i>Prompt Principal (System)</span>
+<div class="card mb-4 border-0">
+    <div class="card-header d-flex justify-content-between align-items-center border-0 pb-0">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-star-fill text-warning me-2"></i>Prompt Principal (System)</h5>
         <button class="btn btn-sm btn-outline-primary" onclick="editarPromptPrincipal()">
             <i class="bi bi-pencil me-1"></i> Editar
         </button>
@@ -171,38 +179,38 @@
 
 {% block extra_js %}
 <script>
-let prompts = [];
+    let prompts = [];
 
-document.addEventListener('DOMContentLoaded', function() {
-    carregarPrompts();
-    carregarPromptPrincipal();
-});
+    document.addEventListener('DOMContentLoaded', function () {
+        carregarPrompts();
+        carregarPromptPrincipal();
+    });
 
-async function carregarPrompts() {
-    try {
-        const data = await apiCall('/api/admin/prompts');
-        prompts = data.prompts || [];
-        renderizarPrompts();
-    } catch (error) {
-        showToast('Erro ao carregar prompts: ' + error.message, 'danger');
+    async function carregarPrompts() {
+        try {
+            const data = await apiCall('/api/admin/prompts');
+            prompts = data.prompts || [];
+            renderizarPrompts();
+        } catch (error) {
+            showToast('Erro ao carregar prompts: ' + error.message, 'danger');
+        }
     }
-}
 
-async function carregarPromptPrincipal() {
-    try {
-        const data = await apiCall('/api/admin/prompt-principal');
-        const preview = document.getElementById('promptPrincipalPreview');
-        preview.innerHTML = `<pre class="mb-0 small">${escapeHtml(data.conteudo.substring(0, 500))}...</pre>`;
-    } catch (error) {
-        console.error('Erro ao carregar prompt principal:', error);
+    async function carregarPromptPrincipal() {
+        try {
+            const data = await apiCall('/api/admin/prompt-principal');
+            const preview = document.getElementById('promptPrincipalPreview');
+            preview.innerHTML = `<pre class="mb-0 small">${escapeHtml(data.conteudo.substring(0, 500))}...</pre>`;
+        } catch (error) {
+            console.error('Erro ao carregar prompt principal:', error);
+        }
     }
-}
 
-function renderizarPrompts() {
-    const container = document.getElementById('listaPrompts');
+    function renderizarPrompts() {
+        const container = document.getElementById('listaPrompts');
 
-    if (prompts.length === 0) {
-        container.innerHTML = `
+        if (prompts.length === 0) {
+            container.innerHTML = `
             <div class="col-12">
                 <div class="text-center text-muted py-4">
                     <i class="bi bi-inbox fs-1"></i>
@@ -210,14 +218,14 @@ function renderizarPrompts() {
                 </div>
             </div>
         `;
-        return;
-    }
+            return;
+        }
 
-    container.innerHTML = prompts.map(p => `
+        container.innerHTML = prompts.map(p => `
         <div class="col-md-6 mb-3">
-            <div class="card prompt-card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-file-text me-2"></i>${p.nome}</span>
+            <div class="card prompt-card h-100 border-0">
+                <div class="card-header d-flex justify-content-between align-items-center border-0 pb-0">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-file-text me-2"></i>${p.nome}</h5>
                     <button class="btn btn-sm btn-outline-primary" onclick="editarPrompt('${p.nome}')">
                         <i class="bi bi-pencil"></i>
                     </button>
@@ -231,106 +239,106 @@ function renderizarPrompts() {
             </div>
         </div>
     `).join('');
-}
-
-function novoPrompt() {
-    document.getElementById('modalPromptTitle').textContent = 'Novo Prompt';
-    document.getElementById('formPrompt').reset();
-    document.getElementById('promptNomeOriginal').value = '';
-    document.getElementById('promptNome').disabled = false;
-    document.getElementById('btnExcluirPrompt').classList.add('d-none');
-    new bootstrap.Modal(document.getElementById('modalPrompt')).show();
-}
-
-async function editarPrompt(nome) {
-    const prompt = prompts.find(p => p.nome === nome);
-    if (!prompt) return;
-
-    document.getElementById('modalPromptTitle').textContent = 'Editar Prompt';
-    document.getElementById('promptNomeOriginal').value = prompt.nome;
-    document.getElementById('promptNome').value = prompt.nome;
-    document.getElementById('promptNome').disabled = true;
-    document.getElementById('promptDescricao').value = prompt.descricao || '';
-    document.getElementById('promptConteudo').value = prompt.conteudo;
-    document.getElementById('btnExcluirPrompt').classList.remove('d-none');
-
-    new bootstrap.Modal(document.getElementById('modalPrompt')).show();
-}
-
-async function salvarPrompt() {
-    const nome = document.getElementById('promptNome').value;
-    const descricao = document.getElementById('promptDescricao').value;
-    const conteudo = document.getElementById('promptConteudo').value;
-
-    try {
-        await apiCall('/api/admin/prompts', 'POST', {
-            nome: nome,
-            conteudo: conteudo,
-            descricao: descricao || null
-        });
-        showToast('Prompt salvo com sucesso!');
-        bootstrap.Modal.getInstance(document.getElementById('modalPrompt')).hide();
-        carregarPrompts();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
     }
-}
 
-async function excluirPrompt() {
-    const nome = document.getElementById('promptNomeOriginal').value;
-    if (!nome) return;
-    if (!confirm('Tem certeza que deseja excluir este prompt?')) return;
-
-    try {
-        await apiCall(`/api/admin/prompts/${nome}`, 'DELETE');
-        showToast('Prompt excluido!');
-        bootstrap.Modal.getInstance(document.getElementById('modalPrompt')).hide();
-        carregarPrompts();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
+    function novoPrompt() {
+        document.getElementById('modalPromptTitle').textContent = 'Novo Prompt';
+        document.getElementById('formPrompt').reset();
+        document.getElementById('promptNomeOriginal').value = '';
+        document.getElementById('promptNome').disabled = false;
+        document.getElementById('btnExcluirPrompt').classList.add('d-none');
+        new bootstrap.Modal(document.getElementById('modalPrompt')).show();
     }
-}
 
-async function editarPromptPrincipal() {
-    try {
-        const data = await apiCall('/api/admin/prompt-principal');
-        document.getElementById('promptPrincipalConteudo').value = data.conteudo;
-        new bootstrap.Modal(document.getElementById('modalPromptPrincipal')).show();
-    } catch (error) {
-        showToast('Erro ao carregar prompt: ' + error.message, 'danger');
+    async function editarPrompt(nome) {
+        const prompt = prompts.find(p => p.nome === nome);
+        if (!prompt) return;
+
+        document.getElementById('modalPromptTitle').textContent = 'Editar Prompt';
+        document.getElementById('promptNomeOriginal').value = prompt.nome;
+        document.getElementById('promptNome').value = prompt.nome;
+        document.getElementById('promptNome').disabled = true;
+        document.getElementById('promptDescricao').value = prompt.descricao || '';
+        document.getElementById('promptConteudo').value = prompt.conteudo;
+        document.getElementById('btnExcluirPrompt').classList.remove('d-none');
+
+        new bootstrap.Modal(document.getElementById('modalPrompt')).show();
     }
-}
 
-async function salvarPromptPrincipal() {
-    const conteudo = document.getElementById('promptPrincipalConteudo').value;
+    async function salvarPrompt() {
+        const nome = document.getElementById('promptNome').value;
+        const descricao = document.getElementById('promptDescricao').value;
+        const conteudo = document.getElementById('promptConteudo').value;
 
-    try {
-        await apiCall('/api/admin/prompt-principal', 'POST', { conteudo: conteudo });
-        showToast('Prompt principal salvo! O agente usara o novo prompt nas proximas mensagens.');
-        bootstrap.Modal.getInstance(document.getElementById('modalPromptPrincipal')).hide();
-        carregarPromptPrincipal();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
+        try {
+            await apiCall('/api/admin/prompts', 'POST', {
+                nome: nome,
+                conteudo: conteudo,
+                descricao: descricao || null
+            });
+            showToast('Prompt salvo com sucesso!');
+            bootstrap.Modal.getInstance(document.getElementById('modalPrompt')).hide();
+            carregarPrompts();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
     }
-}
 
-async function restaurarPromptPadrao() {
-    if (!confirm('Isso ira restaurar o prompt para o padrao original. Continuar?')) return;
+    async function excluirPrompt() {
+        const nome = document.getElementById('promptNomeOriginal').value;
+        if (!nome) return;
+        if (!confirm('Tem certeza que deseja excluir este prompt?')) return;
 
-    try {
-        await apiCall('/api/admin/prompt-principal/restaurar', 'POST');
-        showToast('Prompt restaurado para o padrao!');
-        bootstrap.Modal.getInstance(document.getElementById('modalPromptPrincipal')).hide();
-        carregarPromptPrincipal();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'danger');
+        try {
+            await apiCall(`/api/admin/prompts/${nome}`, 'DELETE');
+            showToast('Prompt excluido!');
+            bootstrap.Modal.getInstance(document.getElementById('modalPrompt')).hide();
+            carregarPrompts();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
     }
-}
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+    async function editarPromptPrincipal() {
+        try {
+            const data = await apiCall('/api/admin/prompt-principal');
+            document.getElementById('promptPrincipalConteudo').value = data.conteudo;
+            new bootstrap.Modal(document.getElementById('modalPromptPrincipal')).show();
+        } catch (error) {
+            showToast('Erro ao carregar prompt: ' + error.message, 'danger');
+        }
+    }
+
+    async function salvarPromptPrincipal() {
+        const conteudo = document.getElementById('promptPrincipalConteudo').value;
+
+        try {
+            await apiCall('/api/admin/prompt-principal', 'POST', { conteudo: conteudo });
+            showToast('Prompt principal salvo! O agente usara o novo prompt nas proximas mensagens.');
+            bootstrap.Modal.getInstance(document.getElementById('modalPromptPrincipal')).hide();
+            carregarPromptPrincipal();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+
+    async function restaurarPromptPadrao() {
+        if (!confirm('Isso ira restaurar o prompt para o padrao original. Continuar?')) return;
+
+        try {
+            await apiCall('/api/admin/prompt-principal/restaurar', 'POST');
+            showToast('Prompt restaurado para o padrao!');
+            bootstrap.Modal.getInstance(document.getElementById('modalPromptPrincipal')).hide();
+            carregarPromptPrincipal();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 </script>
 {% endblock %}

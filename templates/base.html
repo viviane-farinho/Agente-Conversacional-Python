@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,93 +9,312 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #4f46e5;
-            --sidebar-bg: #1e1b4b;
+            --primary-color: #0071e3;
+            /* Apple Blue */
+            --sidebar-bg: rgba(255, 255, 255, 0.65);
+            --glass-bg: rgba(255, 255, 255, 0.65);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.4);
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
         }
+
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background-color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f5f5f7 url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop') no-repeat center center fixed;
+            background-size: cover;
+            color: var(--text-primary);
         }
+
         .sidebar {
             background: var(--sidebar-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: var(--glass-border);
             min-height: 100vh;
             position: fixed;
-            width: 250px;
-            padding-top: 1rem;
+            width: 280px;
+            padding-top: 2rem;
+            z-index: 1000;
         }
+
         .sidebar .nav-link {
-            color: rgba(255,255,255,0.7);
-            padding: 0.75rem 1.5rem;
-            border-radius: 0;
+            color: var(--text-secondary);
+            padding: 0.85rem 1.5rem;
+            margin: 0.25rem 1rem;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .sidebar .nav-link:hover {
+            background: rgba(0, 113, 227, 0.1);
+            color: var(--primary-color);
+        }
+
+        .sidebar .nav-link.active {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
+        }
+
+        .sidebar .nav-link i {
+            margin-right: 1rem;
+            width: 24px;
+            font-size: 1.1rem;
+        }
+
+        .sidebar-brand {
+            color: var(--text-primary);
+            padding: 0 1.5rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sidebar-brand i {
+            color: var(--primary-color);
+            font-size: 1.75rem;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            padding: 2.5rem;
+            transition: margin-left 0.3s ease;
+        }
+
+        /* Sidebar Collapsed State */
+        .sidebar.collapsed {
+            width: 80px;
+        }
+
+        .sidebar.collapsed .sidebar-brand span,
+        .sidebar.collapsed .nav-link span {
+            display: none;
+        }
+
+        .sidebar.collapsed .sidebar-brand {
+            padding: 0;
+            justify-content: center;
+        }
+
+        .sidebar.collapsed .nav-link {
+            padding: 0.85rem;
+            text-align: center;
+            margin: 0.25rem 0.5rem;
+        }
+
+        .sidebar.collapsed .nav-link i {
+            margin-right: 0;
+            font-size: 1.25rem;
+        }
+
+        .main-content.expanded {
+            margin-left: 80px;
+        }
+
+        #sidebarToggle {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 8px;
             transition: all 0.2s;
         }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active {
-            background: rgba(255,255,255,0.1);
-            color: white;
+
+        #sidebarToggle:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: var(--primary-color);
         }
-        .sidebar .nav-link i {
-            margin-right: 0.75rem;
-            width: 20px;
-        }
-        .sidebar-brand {
-            color: white;
-            padding: 1rem 1.5rem;
-            font-size: 1.25rem;
-            font-weight: 600;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            margin-bottom: 1rem;
-        }
-        .main-content {
-            margin-left: 250px;
-            padding: 2rem;
-        }
+
         .card {
-            border: none;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border-radius: 0.75rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 24px;
         }
+
         .card-header {
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
+            background: transparent;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             font-weight: 600;
+            padding: 1.25rem 1.5rem;
         }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        /* Button Styles */
         .btn-primary {
             background: var(--primary-color);
-            border-color: var(--primary-color);
+            border: none;
+            border-radius: 12px;
+            padding: 0.6rem 1.5rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.25);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
         .btn-primary:hover {
-            background: #4338ca;
-            border-color: #4338ca;
+            background: #0077ed;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 113, 227, 0.35);
         }
+
+        .btn-outline-primary {
+            background: rgba(255, 255, 255, 0.2);
+            /* Much softer background */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: var(--primary-color);
+            border: 1px solid rgba(0, 113, 227, 0.3);
+            /* Softer border */
+            border-radius: 12px;
+            padding: 0.6rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+            /* Very subtle shadow */
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0, 113, 227, 0.25);
+        }
+
+        .btn-outline-danger {
+            background: rgba(255, 255, 255, 0.5);
+            /* More visible background */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: #dc2626;
+            /* Darker red */
+            border: 1px solid rgba(220, 38, 38, 0.5);
+            /* Stronger border */
+            border-radius: 12px;
+            padding: 0.4rem 1rem;
+            /* Adjusted padding to match btn-sm better */
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-outline-danger:hover {
+            background: #ef4444;
+            color: white;
+            border-color: #ef4444;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(239, 68, 68, 0.25);
+        }
+
+        .btn-sm {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+        }
+
+        /* Table Styles */
+        .table {
+            --bs-table-bg: transparent;
+            --bs-table-color: var(--text-primary);
+            --bs-table-border-color: rgba(0, 0, 0, 0.05);
+            margin-bottom: 0;
+        }
+
         .table th {
             font-weight: 600;
-            color: #64748b;
-            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 1rem 1.5rem;
+            background: transparent;
         }
+
+        .table td {
+            padding: 1rem 1.5rem;
+            vertical-align: middle;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            color: var(--text-primary);
+        }
+
+        .table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+        }
+
+        .table-hover tbody tr:hover td {
+            color: var(--primary-color);
+            background-color: transparent;
+        }
+
         .badge-status {
             padding: 0.35rem 0.65rem;
             border-radius: 0.5rem;
             font-weight: 500;
         }
+
+        .modal-content {
+            background: rgba(255, 255, 255, 0.85);
+            /* Slightly more opaque for modals */
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: var(--glass-border);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            border-radius: 24px;
+        }
+
         .modal-header {
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 1.5rem 1.5rem 1rem;
         }
-        .toast-container {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 9999;
+
+        .modal-body {
+            padding: 1.5rem;
         }
+
+        .modal-footer {
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 1rem 1.5rem 1.5rem;
+        }
+
+        .modal-backdrop.show {
+            opacity: 0.3;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+
         .fc-event {
             cursor: pointer;
         }
+
         @media (max-width: 768px) {
             .sidebar {
                 width: 100%;
                 position: relative;
                 min-height: auto;
             }
+
             .main-content {
                 margin-left: 0;
             }
@@ -102,45 +322,48 @@
     </style>
     {% block extra_css %}{% endblock %}
 </head>
+
 <body>
     <div class="d-flex">
         <!-- Sidebar -->
         <nav class="sidebar">
-            <div class="sidebar-brand">
-                <i class="bi bi-robot"></i> Secretaria IA
+            <div class="sidebar-brand d-flex justify-content-between align-items-center px-3">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-robot"></i>
+                    <span>Secretaria IA</span>
+                </div>
+                <button id="sidebarToggle" class="btn btn-link text-white p-0" onclick="toggleSidebar()">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
             </div>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link {% if request.url.path == '/admin' %}active{% endif %}" href="/admin">
-                        <i class="bi bi-speedometer2"></i> Dashboard
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if '/admin/agenda' in request.url.path %}active{% endif %}" href="/admin/agenda">
-                        <i class="bi bi-calendar3"></i> Agenda
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if '/admin/profissionais' in request.url.path %}active{% endif %}" href="/admin/profissionais">
-                        <i class="bi bi-people"></i> Profissionais
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if '/admin/rag' in request.url.path %}active{% endif %}" href="/admin/rag">
-                        <i class="bi bi-database"></i> Base de Conhecimento
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if '/admin/prompts' in request.url.path %}active{% endif %}" href="/admin/prompts">
-                        <i class="bi bi-chat-text"></i> Prompts
-                    </a>
-                </li>
-                <li class="nav-item mt-4">
-                    <a class="nav-link" href="/" target="_blank">
-                        <i class="bi bi-box-arrow-up-right"></i> API Status
-                    </a>
-                </li>
-            </ul>
+            <div class="nav flex-column">
+                <a href="/admin"
+                    class="nav-link {% if request.url.path == '/admin' or request.url.path == '/admin/' %}active{% endif %}">
+                    <i class="bi bi-speedometer2"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin/agenda" class="nav-link {% if 'agenda' in request.url.path %}active{% endif %}">
+                    <i class="bi bi-calendar-check"></i>
+                    <span>Agenda</span>
+                </a>
+                <a href="/admin/profissionais"
+                    class="nav-link {% if 'profissionais' in request.url.path %}active{% endif %}">
+                    <i class="bi bi-people"></i>
+                    <span>Profissionais</span>
+                </a>
+                <a href="/admin/prompts" class="nav-link {% if 'prompts' in request.url.path %}active{% endif %}">
+                    <i class="bi bi-chat-square-text"></i>
+                    <span>Prompts</span>
+                </a>
+                <a href="/admin/rag" class="nav-link {% if 'rag' in request.url.path %}active{% endif %}">
+                    <i class="bi bi-database"></i>
+                    <span>Base de Conhecimento</span>
+                </a>
+                <a class="nav-link mt-4" href="/" target="_blank">
+                    <i class="bi bi-box-arrow-up-right"></i>
+                    <span>API Status</span>
+                </a>
+            </div>
         </nav>
 
         <!-- Main Content -->
@@ -154,6 +377,25 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Sidebar Toggle Logic
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const isCollapsed = sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        }
+
+        // Restore state on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            if (isCollapsed) {
+                document.querySelector('.sidebar').classList.add('collapsed');
+                document.querySelector('.main-content').classList.add('expanded');
+            }
+        });
+
         // Toast helper
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
@@ -191,4 +433,5 @@
     </script>
     {% block extra_js %}{% endblock %}
 </body>
+
 </html>
