@@ -79,7 +79,23 @@ class SecretaryAgent:
         async def agent_node(state: AgentState) -> dict:
             """Nó do agente que processa mensagens"""
             messages = state["messages"]
+
+            # Log das ferramentas disponíveis
+            print(f"🛠️ Ferramentas disponíveis: {[t.name for t in self.tools]}")
+
             response = await llm_with_tools.ainvoke(messages)
+
+            # Log detalhado da resposta
+            print(f"📤 Resposta do LLM:")
+            print(f"   - Tipo: {type(response)}")
+            print(f"   - Conteúdo: {response.content[:200] if response.content else 'vazio'}...")
+            if hasattr(response, "tool_calls"):
+                print(f"   - Tool calls: {response.tool_calls}")
+            else:
+                print(f"   - Tool calls: NENHUM (atributo não existe)")
+            if hasattr(response, "additional_kwargs"):
+                print(f"   - additional_kwargs: {response.additional_kwargs}")
+
             return {"messages": [response]}
 
         def should_continue(state: AgentState) -> str:
@@ -92,12 +108,33 @@ class SecretaryAgent:
 
             return END
 
+        async def tools_node(state: AgentState) -> dict:
+            """Nó de ferramentas com logging"""
+            last_message = state["messages"][-1]
+            tool_calls = last_message.tool_calls if hasattr(last_message, "tool_calls") else []
+
+            print(f"🔧 Ferramentas chamadas: {[tc['name'] for tc in tool_calls]}")
+            for tc in tool_calls:
+                print(f"   - {tc['name']}: {tc['args']}")
+
+            # Usa o ToolNode padrão
+            tool_node = ToolNode(self.tools)
+            try:
+                result = await tool_node.ainvoke(state)
+                print(f"✅ Resultado das ferramentas: {result}")
+                return result
+            except Exception as e:
+                print(f"❌ Erro nas ferramentas: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
+
         # Constrói o grafo
         workflow = StateGraph(AgentState)
 
         # Adiciona os nós
         workflow.add_node("agent", agent_node)
-        workflow.add_node("tools", ToolNode(self.tools))
+        workflow.add_node("tools", tools_node)
 
         # Define o ponto de entrada
         workflow.set_entry_point("agent")
@@ -233,8 +270,8 @@ _agent = None
 
 
 def get_agent(model_provider: str = "openrouter") -> SecretaryAgent:
-    """Retorna a instância do agente"""
+    """Retorna a instância do agente (sempre recria para pegar atualizacoes)"""
     global _agent
-    if _agent is None:
-        _agent = SecretaryAgent(model_provider=model_provider)
+    # Sempre recria o agente para pegar atualizacoes no prompt e ferramentas
+    _agent = SecretaryAgent(model_provider=model_provider)
     return _agent

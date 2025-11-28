@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Secretaria IA{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Dashboard</h2>
+    <span class="text-muted">{{ data_atual }}</span>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-primary bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-calendar-check text-primary fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <p class="text-muted mb-0 small">Agendamentos Hoje</p>
+                        <h4 class="mb-0" id="agendamentosHoje">-</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-success bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-check-circle text-success fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <p class="text-muted mb-0 small">Confirmados</p>
+                        <h4 class="mb-0" id="confirmados">-</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-info bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-database text-info fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <p class="text-muted mb-0 small">Docs na Base</p>
+                        <h4 class="mb-0" id="totalDocs">-</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-warning bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-people text-warning fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <p class="text-muted mb-0 small">Profissionais</p>
+                        <h4 class="mb-0" id="totalProfissionais">-</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Proximos Agendamentos</span>
+                <a href="/admin/agenda" class="btn btn-sm btn-outline-primary">Ver Todos</a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Horario</th>
+                                <th>Paciente</th>
+                                <th>Profissional</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="proximosAgendamentos">
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">
+                                    <i class="bi bi-hourglass-split"></i> Carregando...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <span>Acesso Rapido</span>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/admin/agenda" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle me-2"></i> Novo Agendamento
+                    </a>
+                    <a href="/admin/rag" class="btn btn-outline-primary">
+                        <i class="bi bi-file-earmark-plus me-2"></i> Adicionar Documento
+                    </a>
+                    <a href="/admin/prompts" class="btn btn-outline-primary">
+                        <i class="bi bi-pencil-square me-2"></i> Editar Prompts
+                    </a>
+                    <a href="/admin/profissionais" class="btn btn-outline-primary">
+                        <i class="bi bi-person-plus me-2"></i> Gerenciar Profissionais
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <span>Status do Sistema</span>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-success me-2">Online</span>
+                    <span class="small">Servidor API</span>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-success me-2" id="statusDB">-</span>
+                    <span class="small">Banco de Dados</span>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-success me-2" id="statusRAG">-</span>
+                    <span class="small">Base de Conhecimento</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function loadDashboard() {
+    try {
+        // Stats
+        const stats = await apiCall('/api/admin/stats');
+        document.getElementById('agendamentosHoje').textContent = stats.agendamentos_hoje || 0;
+        document.getElementById('confirmados').textContent = stats.confirmados || 0;
+        document.getElementById('totalDocs').textContent = stats.total_documentos || 0;
+        document.getElementById('totalProfissionais').textContent = stats.total_profissionais || 0;
+        document.getElementById('statusDB').textContent = 'Online';
+        document.getElementById('statusDB').className = 'badge bg-success me-2';
+        document.getElementById('statusRAG').textContent = stats.rag_status ? 'Online' : 'Offline';
+        document.getElementById('statusRAG').className = `badge bg-${stats.rag_status ? 'success' : 'warning'} me-2`;
+
+        // Proximos agendamentos
+        const proximos = await apiCall('/api/admin/proximos-agendamentos');
+        const tbody = document.getElementById('proximosAgendamentos');
+
+        if (proximos.agendamentos && proximos.agendamentos.length > 0) {
+            tbody.innerHTML = proximos.agendamentos.map(ag => `
+                <tr>
+                    <td>${new Date(ag.data_hora).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</td>
+                    <td>${ag.paciente_nome}</td>
+                    <td>${ag.profissional_nome}</td>
+                    <td>
+                        <span class="badge ${ag.confirmado ? 'bg-success' : 'bg-warning'}">
+                            ${ag.confirmado ? 'Confirmado' : 'Pendente'}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Nenhum agendamento proximo</td></tr>';
+        }
+    } catch (error) {
+        console.error('Erro ao carregar dashboard:', error);
+    }
+}
+
+loadDashboard();
+</script>
+{% endblock %}

@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Prompts - Secretaria IA{% endblock %}
+
+{% block extra_css %}
+<style>
+    .prompt-editor {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+    .prompt-card {
+        transition: all 0.2s;
+    }
+    .prompt-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .prompt-preview {
+        max-height: 150px;
+        overflow: hidden;
+        position: relative;
+    }
+    .prompt-preview::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 50px;
+        background: linear-gradient(transparent, white);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-chat-text me-2"></i>Prompts do Agente</h2>
+    <button class="btn btn-primary" onclick="novoPrompt()">
+        <i class="bi bi-plus-lg me-1"></i> Novo Prompt
+    </button>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Dica:</strong> Os prompts sao usados para configurar o comportamento do agente.
+            O prompt "system_prompt" e o principal e define a personalidade e instrucoes do agente.
+        </div>
+    </div>
+</div>
+
+<!-- Prompt Principal (System) -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-star-fill text-warning me-2"></i>Prompt Principal (System)</span>
+        <button class="btn btn-sm btn-outline-primary" onclick="editarPromptPrincipal()">
+            <i class="bi bi-pencil me-1"></i> Editar
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="prompt-preview" id="promptPrincipalPreview">
+            <pre class="mb-0 text-muted small">Carregando...</pre>
+        </div>
+    </div>
+</div>
+
+<!-- Outros Prompts -->
+<div class="row" id="listaPrompts">
+    <!-- Prompts serao carregados aqui -->
+</div>
+
+<!-- Modal Editor de Prompt -->
+<div class="modal fade" id="modalPrompt" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPromptTitle">Editar Prompt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formPrompt">
+                    <input type="hidden" id="promptNomeOriginal">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nome do Prompt *</label>
+                            <input type="text" class="form-control" id="promptNome" required
+                                placeholder="Ex: system_prompt, format_prompt">
+                            <small class="text-muted">Use snake_case sem espacos</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Descricao</label>
+                            <input type="text" class="form-control" id="promptDescricao"
+                                placeholder="Breve descricao do proposito deste prompt">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Conteudo do Prompt *</label>
+                        <textarea class="form-control prompt-editor" id="promptConteudo" rows="20" required></textarea>
+                        <small class="text-muted">
+                            Use {variavel} para variaveis dinamicas. Variaveis disponiveis:
+                            {phone}, {conversation_id}, {current_date}, {clinic_info}, {professionals_text}
+                        </small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger d-none" id="btnExcluirPrompt" onclick="excluirPrompt()">
+                    <i class="bi bi-trash me-1"></i> Excluir
+                </button>
+                <button type="button" class="btn btn-primary" onclick="salvarPrompt()">
+                    <i class="bi bi-save me-1"></i> Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Prompt Principal -->
+<div class="modal fade" id="modalPromptPrincipal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Prompt Principal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Atencao:</strong> Este prompt define o comportamento principal do agente.
+                    Alteracoes incorretas podem afetar o funcionamento do sistema.
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Prompt do Sistema</label>
+                    <textarea class="form-control prompt-editor" id="promptPrincipalConteudo" rows="25"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Variaveis Disponiveis</label>
+                    <div class="small text-muted">
+                        <code>{phone}</code> - Telefone do contato<br>
+                        <code>{conversation_id}</code> - ID da conversa<br>
+                        <code>{current_date}</code> - Data e hora atual<br>
+                        <code>{clinic_text}</code> - Informacoes da clinica<br>
+                        <code>{professionals_text}</code> - Lista de profissionais
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="restaurarPromptPadrao()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar Padrao
+                </button>
+                <button type="button" class="btn btn-primary" onclick="salvarPromptPrincipal()">
+                    <i class="bi bi-save me-1"></i> Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let prompts = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    carregarPrompts();
+    carregarPromptPrincipal();
+});
+
+async function carregarPrompts() {
+    try {
+        const data = await apiCall('/api/admin/prompts');
+        prompts = data.prompts || [];
+        renderizarPrompts();
+    } catch (error) {
+        showToast('Erro ao carregar prompts: ' + error.message, 'danger');
+    }
+}
+
+async function carregarPromptPrincipal() {
+    try {
+        const data = await apiCall('/api/admin/prompt-principal');
+        const preview = document.getElementById('promptPrincipalPreview');
+        preview.innerHTML = `<pre class="mb-0 small">${escapeHtml(data.conteudo.substring(0, 500))}...</pre>`;
+    } catch (error) {
+        console.error('Erro ao carregar prompt principal:', error);
+    }
+}
+
+function renderizarPrompts() {
+    const container = document.getElementById('listaPrompts');
+
+    if (prompts.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox fs-1"></i>
+                    <p class="mt-2">Nenhum prompt personalizado criado</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = prompts.map(p => `
+        <div class="col-md-6 mb-3">
+            <div class="card prompt-card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-file-text me-2"></i>${p.nome}</span>
+                    <button class="btn btn-sm btn-outline-primary" onclick="editarPrompt('${p.nome}')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">${p.descricao || 'Sem descricao'}</p>
+                    <div class="prompt-preview">
+                        <pre class="mb-0 small">${escapeHtml(p.conteudo.substring(0, 200))}...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function novoPrompt() {
+    document.getElementById('modalPromptTitle').textContent = 'Novo Prompt';
+    document.getElementById('formPrompt').reset();
+    document.getElementById('promptNomeOriginal').value = '';
+    document.getElementById('promptNome').disabled = false;
+    document.getElementById('btnExcluirPrompt').classList.add('d-none');
+    new bootstrap.Modal(document.getElementById('modalPrompt')).show();
+}
+
+async function editarPrompt(nome) {
+    const prompt = prompts.find(p => p.nome === nome);
+    if (!prompt) return;
+
+    document.getElementById('modalPromptTitle').textContent = 'Editar Prompt';
+    document.getElementById('promptNomeOriginal').value = prompt.nome;
+    document.getElementById('promptNome').value = prompt.nome;
+    document.getElementById('promptNome').disabled = true;
+    document.getElementById('promptDescricao').value = prompt.descricao || '';
+    document.getElementById('promptConteudo').value = prompt.conteudo;
+    document.getElementById('btnExcluirPrompt').classList.remove('d-none');
+
+    new bootstrap.Modal(document.getElementById('modalPrompt')).show();
+}
+
+async function salvarPrompt() {
+    const nome = document.getElementById('promptNome').value;
+    const descricao = document.getElementById('promptDescricao').value;
+    const conteudo = document.getElementById('promptConteudo').value;
+
+    try {
+        await apiCall('/api/admin/prompts', 'POST', {
+            nome: nome,
+            conteudo: conteudo,
+            descricao: descricao || null
+        });
+        showToast('Prompt salvo com sucesso!');
+        bootstrap.Modal.getInstance(document.getElementById('modalPrompt')).hide();
+        carregarPrompts();
+    } catch (error) {
+        showToast('Erro: ' + error.message, 'danger');
+    }
+}
+
+async function excluirPrompt() {
+    const nome = document.getElementById('promptNomeOriginal').value;
+    if (!nome) return;
+    if (!confirm('Tem certeza que deseja excluir este prompt?')) return;
+
+    try {
+        await apiCall(`/api/admin/prompts/${nome}`, 'DELETE');
+        showToast('Prompt excluido!');
+        bootstrap.Modal.getInstance(document.getElementById('modalPrompt')).hide();
+        carregarPrompts();
+    } catch (error) {
+        showToast('Erro: ' + error.message, 'danger');
+    }
+}
+
+async function editarPromptPrincipal() {
+    try {
+        const data = await apiCall('/api/admin/prompt-principal');
+        document.getElementById('promptPrincipalConteudo').value = data.conteudo;
+        new bootstrap.Modal(document.getElementById('modalPromptPrincipal')).show();
+    } catch (error) {
+        showToast('Erro ao carregar prompt: ' + error.message, 'danger');
+    }
+}
+
+async function salvarPromptPrincipal() {
+    const conteudo = document.getElementById('promptPrincipalConteudo').value;
+
+    try {
+        await apiCall('/api/admin/prompt-principal', 'POST', { conteudo: conteudo });
+        showToast('Prompt principal salvo! O agente usara o novo prompt nas proximas mensagens.');
+        bootstrap.Modal.getInstance(document.getElementById('modalPromptPrincipal')).hide();
+        carregarPromptPrincipal();
+    } catch (error) {
+        showToast('Erro: ' + error.message, 'danger');
+    }
+}
+
+async function restaurarPromptPadrao() {
+    if (!confirm('Isso ira restaurar o prompt para o padrao original. Continuar?')) return;
+
+    try {
+        await apiCall('/api/admin/prompt-principal/restaurar', 'POST');
+        showToast('Prompt restaurado para o padrao!');
+        bootstrap.Modal.getInstance(document.getElementById('modalPromptPrincipal')).hide();
+        carregarPromptPrincipal();
+    } catch (error) {
+        showToast('Erro: ' + error.message, 'danger');
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

@@ -382,11 +382,12 @@ def buscar_informacao_empresa(
         from src.services.rag import rag_service
 
         # Usa o método síncrono que não depende do asyncio
+        # Threshold baixo (0.3) para capturar variações na forma de perguntar
         results = rag_service.search_sync(
             query=pergunta,
             limit=3,
             categoria=categoria,
-            similarity_threshold=0.6
+            similarity_threshold=0.3
         )
 
         if not results:
@@ -402,18 +403,30 @@ def buscar_informacao_empresa(
         return f"Erro ao buscar informações: {str(e)}"
 
 
-# Lista de todas as ferramentas
+# Importa ferramentas de agenda do banco de dados
+from src.agent.tools_agenda import AGENDA_TOOLS
+
+# Lista de todas as ferramentas (sem Google Calendar, usando agenda do banco)
 ALL_TOOLS = [
+    # Ferramentas de agenda (banco de dados local)
+    *AGENDA_TOOLS,
+    # Ferramentas de arquivos
+    listar_arquivos,
+    baixar_e_enviar_arquivo,
+    # Ferramentas de comunicacao
+    reagir_mensagem,
+    escalar_humano,
+    enviar_alerta_de_cancelamento,
+    # Ferramentas auxiliares
+    refletir,
+    buscar_informacao_empresa
+]
+
+# Ferramentas antigas do Google Calendar (mantidas para compatibilidade)
+GOOGLE_CALENDAR_TOOLS = [
     criar_evento,
     buscar_evento,
     buscar_todos_os_eventos,
     atualizar_evento,
-    deletar_evento,
-    listar_arquivos,
-    baixar_e_enviar_arquivo,
-    reagir_mensagem,
-    escalar_humano,
-    enviar_alerta_de_cancelamento,
-    refletir,
-    buscar_informacao_empresa
+    deletar_evento
 ]

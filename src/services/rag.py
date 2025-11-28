@@ -298,20 +298,23 @@ class RAGService:
         query: str,
         limit: int = 5,
         categoria: str = None,
-        similarity_threshold: float = 0.7
+        similarity_threshold: float = 0.3
     ) -> list[dict]:
         """
-        Busca documentos similares à query (versão síncrona)
-        Usa conexão direta ao banco para evitar problemas com asyncio
+        Busca híbrida: combina busca semântica (embeddings) + full-text search
+
+        A busca híbrida melhora a precisão combinando:
+        - Semantic search: entende a intenção/contexto
+        - Full-text search: encontra nomes e termos exatos
 
         Args:
             query: Pergunta ou termo de busca
             limit: Número máximo de resultados
             categoria: Filtrar por categoria específica
-            similarity_threshold: Threshold mínimo de similaridade (0-1)
+            similarity_threshold: Threshold mínimo para score combinado (0-1)
 
         Returns:
-            Lista de documentos relevantes com score de similaridade
+            Lista de documentos relevantes com score combinado
         """
         import psycopg2
         from psycopg2.extras import RealDictCursor
@@ -328,27 +331,62 @@ class RAGService:
         conn = psycopg2.connect(conn_string)
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Busca híbrida: combina semantic similarity + full-text rank
+                # Score final = 0.7 * semantic + 0.3 * fulltext (prioriza semântico para sinônimos)
                 if categoria:
                     cur.execute("""
+                        WITH semantic AS (
+                            SELECT id, 1 - (embedding <=> %s::vector) as semantic_score
+                            FROM empresa_documentos
+                            WHERE categoria = %s
+                        ),
+                        fulltext AS (
+                            SELECT id,
+                                   COALESCE(ts_rank(
+                                       to_tsvector('portuguese', titulo || ' ' || conteudo),
+                                       plainto_tsquery('portuguese', %s)
+                                   ), 0) as fulltext_score
+                            FROM empresa_documentos
+                            WHERE categoria = %s
+                        )
                         SELECT
-                            id, titulo, categoria, conteudo, metadata,
-                            1 - (embedding <=> %s::vector) as similarity
-                        FROM empresa_documentos
-                        WHERE categoria = %s
-                        AND 1 - (embedding <=> %s::vector) > %s
-                        ORDER BY embedding <=> %s::vector
+                            d.id, d.titulo, d.categoria, d.conteudo, d.metadata,
+                            s.semantic_score,
+                            f.fulltext_score,
+                            (0.7 * s.semantic_score + 0.3 * LEAST(f.fulltext_score * 2, 1)) as combined_score
+                        FROM empresa_documentos d
+                        JOIN semantic s ON d.id = s.id
+                        JOIN fulltext f ON d.id = f.id
+                        WHERE (0.7 * s.semantic_score + 0.3 * LEAST(f.fulltext_score * 2, 1)) > %s
+                        ORDER BY combined_score DESC
                         LIMIT %s
-                    """, (str(query_embedding), categoria, str(query_embedding), similarity_threshold, str(query_embedding), limit))
+                    """, (str(query_embedding), categoria, query, categoria, similarity_threshold, limit))
                 else:
                     cur.execute("""
+                        WITH semantic AS (
+                            SELECT id, 1 - (embedding <=> %s::vector) as semantic_score
+                            FROM empresa_documentos
+                        ),
+                        fulltext AS (
+                            SELECT id,
+                                   COALESCE(ts_rank(
+                                       to_tsvector('portuguese', titulo || ' ' || conteudo),
+                                       plainto_tsquery('portuguese', %s)
+                                   ), 0) as fulltext_score
+                            FROM empresa_documentos
+                        )
                         SELECT
-                            id, titulo, categoria, conteudo, metadata,
-                            1 - (embedding <=> %s::vector) as similarity
-                        FROM empresa_documentos
-                        WHERE 1 - (embedding <=> %s::vector) > %s
-                        ORDER BY embedding <=> %s::vector
+                            d.id, d.titulo, d.categoria, d.conteudo, d.metadata,
+                            s.semantic_score,
+                            f.fulltext_score,
+                            (0.7 * s.semantic_score + 0.3 * LEAST(f.fulltext_score * 2, 1)) as combined_score
+                        FROM empresa_documentos d
+                        JOIN semantic s ON d.id = s.id
+                        JOIN fulltext f ON d.id = f.id
+                        WHERE (0.7 * s.semantic_score + 0.3 * LEAST(f.fulltext_score * 2, 1)) > %s
+                        ORDER BY combined_score DESC
                         LIMIT %s
-                    """, (str(query_embedding), str(query_embedding), similarity_threshold, str(query_embedding), limit))
+                    """, (str(query_embedding), query, similarity_threshold, limit))
 
                 rows = cur.fetchall()
 
@@ -359,7 +397,9 @@ class RAGService:
                         "categoria": row["categoria"],
                         "conteudo": row["conteudo"],
                         "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
-                        "similarity": float(row["similarity"])
+                        "similarity": float(row["combined_score"]),
+                        "semantic_score": float(row["semantic_score"]),
+                        "fulltext_score": float(row["fulltext_score"])
                     }
                     for row in rows
                 ]

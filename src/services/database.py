@@ -132,7 +132,8 @@ class DatabaseService:
         """Adiciona uma mensagem ao histórico"""
         import json
         # Usa formato JSONB compatível com a tabela existente (type: human/ai)
-        msg_type = "human" if role == "user" else "ai"
+        # Aceita tanto "user"/"human" para humano quanto "assistant"/"ai" para IA
+        msg_type = "human" if role in ("user", "human") else "ai"
         message_data = json.dumps({
             "type": msg_type,
             "content": content,

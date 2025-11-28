@@ -25,5 +25,12 @@ httpx==0.28.1
 # OpenAI (para Whisper)
 openai==1.58.1
 
-# Variáveis de ambiente
+# Templates
+jinja2==3.1.2
+
+# Banco de Dados (sync)
+psycopg2-binary==2.9.9
+requests==2.31.0
+
+# Variaveis de ambiente
 python-dotenv==1.0.1
