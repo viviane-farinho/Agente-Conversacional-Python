@@ -1,0 +1,29 @@
+# Framework Web
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.3
+
+# LangChain e LangGraph
+langchain==0.3.13
+langchain-core==0.3.28
+langchain-community==0.3.13
+langchain-openai==0.2.14
+langchain-google-genai==2.0.7
+langgraph==0.2.60
+
+# Google APIs
+google-api-python-client==2.157.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.1
+
+# Banco de Dados
+asyncpg==0.30.0
+
+# HTTP Client
+httpx==0.28.1
+
+# OpenAI (para Whisper)
+openai==1.58.1
+
+# Variáveis de ambiente
+python-dotenv==1.0.1
