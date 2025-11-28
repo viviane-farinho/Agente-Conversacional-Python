@@ -10,9 +10,6 @@ from psycopg2.extras import RealDictCursor
 
 from src.config import Config
 
-# Timezone de São Paulo (UTC-3)
-SAO_PAULO_TZ = timezone(timedelta(hours=-3))
-
 
 def _get_connection():
     """Retorna uma conexao sincrona com o banco"""
@@ -229,10 +226,9 @@ def _buscar_horarios_disponiveis_sync(profissional_id, data_obj):
 
     disponiveis = [s.strftime("%H:%M") for s in slots if s.strftime("%H:%M") not in ocupados]
 
-    # Se for hoje, remove horarios passados (usando timezone de São Paulo)
-    agora_sp = datetime.now(SAO_PAULO_TZ)
-    if data_obj == agora_sp.date():
-        agora = agora_sp.strftime("%H:%M")
+    # Se for hoje, remove horarios passados
+    if data_obj == date.today():
+        agora = datetime.now().strftime("%H:%M")
         disponiveis = [h for h in disponiveis if h > agora]
 
     return disponiveis
@@ -271,16 +267,15 @@ def criar_agendamento(
             nomes = ', '.join([p['nome'] for p in profissionais]) if profissionais else "Nenhum cadastrado"
             return f"Profissional '{profissional_nome}' nao encontrado. Profissionais disponiveis: {nomes}"
 
-        # Monta a data/hora com timezone de São Paulo
+        # Monta a data/hora SEM timezone (naive) para salvar o horário exato
+        # O PostgreSQL vai tratar como horário local
         try:
             data_hora = datetime.strptime(f"{data} {horario}", "%Y-%m-%d %H:%M")
-            data_hora = data_hora.replace(tzinfo=SAO_PAULO_TZ)
         except ValueError:
             return f"Formato de data/hora invalido. Use YYYY-MM-DD para data e HH:MM para horario."
 
-        # Verifica se e data futura
-        agora_sp = datetime.now(SAO_PAULO_TZ)
-        if data_hora < agora_sp:
+        # Verifica se e data futura (compara com horário local)
+        if data_hora < datetime.now():
             return "Erro: Nao e possivel agendar em datas/horarios passados."
 
         # Converte nascimento
@@ -368,7 +363,7 @@ def buscar_agendamento_paciente(
     try:
         agendamentos = _buscar_agendamentos_sync(
             telefone=telefone,
-            data_inicio=datetime.now(SAO_PAULO_TZ)
+            data_inicio=datetime.now()
         )
 
         if not agendamentos:
@@ -464,15 +459,13 @@ def remarcar_agendamento(
         if not ag:
             return f"Agendamento ID {agendamento_id} nao encontrado."
 
-        # Monta nova data/hora com timezone de São Paulo
+        # Monta nova data/hora SEM timezone (naive)
         try:
             nova_data_hora = datetime.strptime(f"{nova_data} {novo_horario}", "%Y-%m-%d %H:%M")
-            nova_data_hora = nova_data_hora.replace(tzinfo=SAO_PAULO_TZ)
         except ValueError:
             return "Formato de data/hora invalido."
 
-        agora_sp = datetime.now(SAO_PAULO_TZ)
-        if nova_data_hora < agora_sp:
+        if nova_data_hora < datetime.now():
             return "Erro: Nao e possivel remarcar para datas/horarios passados."
 
         # Atualiza

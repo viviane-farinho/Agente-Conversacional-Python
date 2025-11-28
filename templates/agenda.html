@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const calendarEl = document.getElementById('calendar');
     calendar = new FullCalendar.Calendar(calendarEl, {
         locale: 'pt-br',
-        timeZone: 'local',
+        timeZone: 'UTC',
         initialView: 'timeGridWeek',
         headerToolbar: {
             left: 'prev,next today',

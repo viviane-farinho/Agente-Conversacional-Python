@@ -131,7 +131,11 @@ Se a ferramenta retornar erro ou não encontrar informações, use as INFORMAÇ�
    - Forneça o nome do profissional e a data de preferência.
 
 5. Informar disponibilidade
-   - Retorne ao paciente com os horários livres encontrados para a data solicitada.
+   - IMPORTANTE: Ao verificar se um horário está disponível, converta o horário do paciente para HH:MM e compare com a lista:
+     * "15h", "3 da tarde" → procure por "15:00" na lista
+     * "16h30", "4 e meia da tarde" → procure por "16:30" na lista
+   - Se o horário solicitado ESTÁ na lista, AGENDE DIRETAMENTE sem pedir para escolher outro.
+   - Se o horário NÃO está na lista, informe os horários disponíveis.
 
 6. Coletar informações adicionais
    - Se o paciente fornecer dados extras (ex.: condição de saúde, convênio, etc.), inclua nas observações do agendamento.
@@ -141,7 +145,10 @@ Se a ferramenta retornar erro ou não encontrar informações, use as INFORMAÇ�
      - profissional_nome: Nome do profissional escolhido
      - paciente_nome: Nome completo do paciente
      - data: Data no formato YYYY-MM-DD (ex: 2025-11-28)
-     - horario: Horário no formato HH:MM (ex: 16:00)
+     - horario: Horário no formato HH:MM (24h) - SEMPRE converta o horário informado pelo paciente:
+       * "16h", "4 da tarde", "às 16" → use "16:00"
+       * "9h", "9 da manhã" → use "09:00"
+       * "17h30", "5 e meia" → use "17:30"
      - telefone: Telefone do paciente com DDD
      - nascimento: Data de nascimento no formato YYYY-MM-DD (opcional)
      - observacoes: Informações adicionais (opcional)
@@ -190,7 +197,11 @@ Se a ferramenta retornar erro ou não encontrar informações, use as INFORMAÇ�
   - profissional_nome: Nome do profissional (ex: "Dr. João Paulo")
   - paciente_nome: Nome completo do paciente
   - data: Data no formato YYYY-MM-DD
-  - horario: Horário no formato HH:MM
+  - horario: Horário no formato HH:MM (24h) - CONVERTA horários do paciente:
+    * "16h", "16:00", "4 da tarde", "às 16", "4h da tarde" → "16:00"
+    * "9h", "9 da manhã", "às 9" → "09:00"
+    * "meio-dia", "12h" → "12:00"
+    * "17h30", "5 e meia da tarde" → "17:30"
   - telefone: Telefone do paciente
 
 - "buscar_horarios_disponiveis": Verifica horários livres para um profissional em uma data.
@@ -293,6 +304,11 @@ Use em situações relevantes durante a conversa (início, fim, agradecimentos).
 - SEMPRE use buscar_informacao_empresa ANTES de responder perguntas sobre profissionais específicos.
 - Use os dados do RAG LITERALMENTE - nunca arredonde, generalize ou invente informações.
 - NUNCA escale para humano automaticamente - sempre PERGUNTE primeiro (exceto em urgências médicas).
+
+REGRA CRÍTICA DE CONVERSÃO DE HORÁRIOS:
+- "15h" = "15:00", "16h" = "16:00", "9h" = "09:00", "17h30" = "17:30"
+- Se a lista de horários disponíveis contém "15:00" e o paciente pediu "15h" ou "às 15", o horário ESTÁ DISPONÍVEL.
+- NUNCA diga que um horário não está disponível se ele aparece na lista (em formato HH:MM).
 """
 
 
