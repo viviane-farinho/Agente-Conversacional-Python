@@ -108,6 +108,29 @@ class PromptPrincipalUpdate(BaseModel):
     conteudo: str
 
 
+class PipelineConversaBase(BaseModel):
+    telefone: str
+    nome_paciente: Optional[str] = None
+    etapa: str = "novo_contato"
+    conversation_id: Optional[str] = None
+    ultima_mensagem: Optional[str] = None
+    agendamento_id: Optional[int] = None
+    observacoes: Optional[str] = None
+    tipo_atendimento: Optional[str] = "agente"  # agente, humano, manual
+
+
+class PipelineConversaUpdate(BaseModel):
+    telefone: Optional[str] = None
+    nome_paciente: Optional[str] = None
+    etapa: Optional[str] = None
+    observacoes: Optional[str] = None
+    tipo_atendimento: Optional[str] = None
+
+
+class PipelineMoverEtapa(BaseModel):
+    etapa: str
+
+
 # --- Contexto do App ---
 
 @asynccontextmanager
@@ -170,7 +193,8 @@ async def process_incoming_message(
     is_audio: bool,
     audio_url: Optional[str],
     labels: list,
-    telegram_chat_id: str
+    telegram_chat_id: str,
+    sender_name: str = ""
 ):
     """
     Processa uma mensagem recebida
@@ -187,6 +211,13 @@ async def process_incoming_message(
         # Verifica se o agente esta desabilitado para esta conversa
         if "agente-off" in labels:
             print(f"Agente desabilitado para conversa {conversation_id}")
+            # Atualiza o pipeline para mostrar badge "Humano"
+            db = await get_db_service()
+            await db.pipeline_upsert_conversa(
+                telefone=phone,
+                tipo_atendimento="humano",
+                ultima_mensagem=message[:200] if message else None
+            )
             return
 
         db = await get_db_service()
@@ -223,6 +254,32 @@ async def process_incoming_message(
             final_message = "\n".join([m["mensagem"] for m in queued_messages])
 
         print(f"Processando mensagem de {phone}: {final_message[:50]}...")
+
+        # Atualiza o pipeline automaticamente
+        pipeline_conversa = await db.pipeline_buscar_por_telefone(phone)
+        if pipeline_conversa:
+            # Atualiza a conversa existente - move para "em_atendimento" se era "novo_contato"
+            nova_etapa = "em_atendimento" if pipeline_conversa.get("etapa") == "novo_contato" else None
+            # Se estava como "humano" e agora nao tem mais agent-off, volta para "agente"
+            tipo_atual = pipeline_conversa.get("tipo_atendimento")
+            novo_tipo = "agente" if tipo_atual == "humano" and "agente-off" not in labels else None
+            await db.pipeline_upsert_conversa(
+                telefone=phone,
+                etapa=nova_etapa,
+                conversation_id=conversation_id,
+                ultima_mensagem=final_message[:200],
+                tipo_atendimento=novo_tipo
+            )
+        else:
+            # Cria nova conversa no pipeline com nome do WhatsApp
+            await db.pipeline_upsert_conversa(
+                telefone=phone,
+                etapa="novo_contato",
+                nome_paciente=sender_name if sender_name else None,
+                conversation_id=conversation_id,
+                ultima_mensagem=final_message[:200],
+                tipo_atendimento="agente"
+            )
 
         # Marca como lida e mostra "digitando"
         await chatwoot_service.mark_as_read(account_id, conversation_id)
@@ -339,6 +396,7 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
 
         sender = data.get("sender", {})
         phone = sender.get("phone_number", "")
+        sender_name = sender.get("name", "") or sender.get("contact_name", "")
 
         content = data.get("content", "") or ""
         attachments = data.get("attachments", []) or []
@@ -370,7 +428,8 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
             is_audio=is_audio,
             audio_url=audio_url,
             labels=labels,
-            telegram_chat_id=Config.TELEGRAM_CHAT_ID
+            telegram_chat_id=Config.TELEGRAM_CHAT_ID,
+            sender_name=sender_name
         )
 
         return {"status": "processing"}
@@ -510,6 +569,12 @@ async def admin_rag(request: Request):
 async def admin_prompts(request: Request):
     """Pagina de prompts"""
     return templates.TemplateResponse("prompts.html", {"request": request})
+
+
+@app.get("/admin/pipeline", response_class=HTMLResponse)
+async def admin_pipeline(request: Request):
+    """Pagina de pipeline de atendimento"""
+    return templates.TemplateResponse("pipeline.html", {"request": request})
 
 
 # --- API Admin ---
@@ -892,6 +957,133 @@ async def api_restaurar_prompt_principal():
         agenda = await get_agenda_service(db.pool)
         await agenda.deletar_prompt("system_prompt")
         return {"message": "Prompt restaurado para o padrao"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- API Pipeline de Atendimento ---
+
+@app.get("/api/admin/pipeline")
+async def api_listar_pipeline():
+    """Lista todas as conversas do pipeline com estatisticas"""
+    try:
+        db = await get_db_service()
+        conversas = await db.pipeline_listar_conversas()
+        stats = await db.pipeline_stats()
+
+        # Converte datetime para string ISO
+        for c in conversas:
+            if c.get('ultima_atualizacao'):
+                c['ultima_atualizacao'] = c['ultima_atualizacao'].isoformat()
+            if c.get('created_at'):
+                c['created_at'] = c['created_at'].isoformat()
+            if c.get('agendamento_data'):
+                c['agendamento_data'] = c['agendamento_data'].isoformat()
+
+        return {"conversas": conversas, "stats": stats}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/pipeline")
+async def api_criar_conversa_pipeline(conversa: PipelineConversaBase):
+    """Cria uma nova conversa no pipeline"""
+    try:
+        db = await get_db_service()
+        conversa_id = await db.pipeline_upsert_conversa(
+            telefone=conversa.telefone,
+            etapa=conversa.etapa,
+            nome_paciente=conversa.nome_paciente,
+            conversation_id=conversa.conversation_id,
+            ultima_mensagem=conversa.ultima_mensagem,
+            agendamento_id=conversa.agendamento_id,
+            observacoes=conversa.observacoes,
+            tipo_atendimento=conversa.tipo_atendimento
+        )
+        return {"id": conversa_id, "message": "Conversa criada/atualizada"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/admin/pipeline/{conversa_id}")
+async def api_atualizar_conversa_pipeline(conversa_id: int, conversa: PipelineConversaUpdate):
+    """Atualiza uma conversa no pipeline"""
+    try:
+        db = await get_db_service()
+
+        # Busca a conversa atual para pegar o telefone
+        conversas = await db.pipeline_listar_conversas()
+        atual = next((c for c in conversas if c['id'] == conversa_id), None)
+        if not atual:
+            raise HTTPException(status_code=404, detail="Conversa nao encontrada")
+
+        await db.pipeline_upsert_conversa(
+            telefone=conversa.telefone or atual['telefone'],
+            etapa=conversa.etapa,
+            nome_paciente=conversa.nome_paciente,
+            observacoes=conversa.observacoes,
+            tipo_atendimento=conversa.tipo_atendimento
+        )
+        return {"message": "Conversa atualizada"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/pipeline/{conversa_id}/mover")
+async def api_mover_conversa_pipeline(conversa_id: int, dados: PipelineMoverEtapa):
+    """Move uma conversa para outra etapa"""
+    try:
+        db = await get_db_service()
+        success = await db.pipeline_mover_etapa(conversa_id, dados.etapa)
+        if not success:
+            raise HTTPException(status_code=404, detail="Conversa nao encontrada")
+        return {"message": "Conversa movida"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/pipeline/{conversa_id}")
+async def api_deletar_conversa_pipeline(conversa_id: int):
+    """Remove uma conversa do pipeline"""
+    try:
+        db = await get_db_service()
+        success = await db.pipeline_deletar_conversa(conversa_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Conversa nao encontrada")
+        return {"message": "Conversa removida"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/pipeline/{conversa_id}/historico")
+async def api_historico_conversa_pipeline(conversa_id: int):
+    """Retorna o historico de mensagens de uma conversa"""
+    try:
+        db = await get_db_service()
+
+        # Busca a conversa para pegar o telefone (session_id)
+        conversas = await db.pipeline_listar_conversas()
+        conversa = next((c for c in conversas if c['id'] == conversa_id), None)
+        if not conversa:
+            raise HTTPException(status_code=404, detail="Conversa nao encontrada")
+
+        # Busca historico usando o telefone como session_id
+        mensagens = await db.get_message_history(conversa['telefone'], limit=50)
+
+        # Converte datetime para string
+        for m in mensagens:
+            if m.get('created_at'):
+                m['created_at'] = m['created_at'].isoformat()
+
+        return {"mensagens": mensagens}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

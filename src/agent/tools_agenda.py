@@ -100,8 +100,19 @@ def _criar_agendamento_sync(profissional_id, paciente_nome, data_hora, telefone=
             """, (profissional_id, paciente_nome, telefone, nascimento, data_hora, observacoes, conversation_id))
 
             result = cur.fetchone()
+            agendamento_id = result["id"]
             conn.commit()
-            return {"id": result["id"]}
+
+            # Atualiza o pipeline automaticamente para "agendado"
+            if telefone:
+                _atualizar_pipeline_sync(
+                    telefone=telefone,
+                    etapa="agendado",
+                    nome_paciente=paciente_nome,
+                    agendamento_id=agendamento_id
+                )
+
+            return {"id": agendamento_id}
     finally:
         conn.close()
 
@@ -188,6 +199,51 @@ def _confirmar_agendamento_sync(agendamento_id):
             """, (agendamento_id,))
             conn.commit()
             return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def _atualizar_pipeline_sync(telefone, etapa=None, nome_paciente=None, agendamento_id=None):
+    """Atualiza o pipeline de atendimento (sincrono)"""
+    conn = _get_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Verifica se ja existe
+            cur.execute("""
+                SELECT id FROM pipeline_conversas WHERE telefone = %s
+            """, (telefone,))
+            existing = cur.fetchone()
+
+            if existing:
+                # Atualiza
+                updates = ["ultima_atualizacao = NOW()"]
+                params = []
+
+                if etapa:
+                    updates.append("etapa = %s")
+                    params.append(etapa)
+                if nome_paciente:
+                    updates.append("nome_paciente = %s")
+                    params.append(nome_paciente)
+                if agendamento_id is not None:
+                    updates.append("agendamento_id = %s")
+                    params.append(agendamento_id)
+
+                params.append(telefone)
+                cur.execute(f"""
+                    UPDATE pipeline_conversas
+                    SET {', '.join(updates)}
+                    WHERE telefone = %s
+                """, params)
+            else:
+                # Cria novo
+                cur.execute("""
+                    INSERT INTO pipeline_conversas
+                    (telefone, etapa, nome_paciente, agendamento_id)
+                    VALUES (%s, %s, %s, %s)
+                """, (telefone, etapa or "novo_contato", nome_paciente, agendamento_id))
+
+            conn.commit()
     finally:
         conn.close()
 
@@ -573,6 +629,26 @@ def listar_profissionais_disponiveis() -> str:
         return f"Erro ao listar profissionais: {str(e)}"
 
 
+@tool
+def registrar_nome_paciente(
+    nome: Annotated[str, "Nome completo do paciente"],
+    telefone: Annotated[str, "Telefone do paciente com DDD"]
+) -> str:
+    """
+    Registra o nome do paciente no sistema.
+    Use quando o paciente informar seu nome durante a conversa.
+    Isso atualiza o cadastro do paciente no pipeline de atendimento.
+    """
+    try:
+        _atualizar_pipeline_sync(
+            telefone=telefone,
+            nome_paciente=nome
+        )
+        return f"Nome '{nome}' registrado com sucesso para o telefone {telefone}."
+    except Exception as e:
+        return f"Erro ao registrar nome: {str(e)}"
+
+
 # Lista de ferramentas de agenda
 AGENDA_TOOLS = [
     criar_agendamento,
@@ -582,5 +658,6 @@ AGENDA_TOOLS = [
     remarcar_agendamento,
     cancelar_agendamento,
     confirmar_agendamento,
-    listar_profissionais_disponiveis
+    listar_profissionais_disponiveis,
+    registrar_nome_paciente
 ]

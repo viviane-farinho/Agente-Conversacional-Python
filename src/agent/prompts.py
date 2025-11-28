@@ -210,6 +210,11 @@ Se a ferramenta retornar erro ou não encontrar informações, use as INFORMAÇ�
 
 - "listar_profissionais_disponiveis": Lista todos os profissionais da clínica.
 
+- "registrar_nome_paciente": Registra o nome do paciente no sistema.
+  - nome: Nome completo do paciente
+  - telefone: Telefone do paciente
+  Use quando o paciente informar seu nome durante a conversa (ex: "Meu nome é Maria Silva").
+
 - "buscar_agendamento_paciente": Busca agendamentos futuros pelo telefone do paciente.
 
 - "remarcar_agendamento": Remarca um agendamento existente.

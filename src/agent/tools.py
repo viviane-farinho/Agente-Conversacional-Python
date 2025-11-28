@@ -315,6 +315,17 @@ def escalar_humano(
             chat_id=_context["telegram_chat_id"]
         )
 
+        # Atualiza pipeline para "aguardando_resposta" (escalado para humano)
+        if _context["phone"]:
+            db = await get_db_service()
+            await db.pipeline_upsert_conversa(
+                telefone=_context["phone"],
+                etapa="aguardando_resposta",
+                nome_paciente=nome if nome else None,
+                observacoes="Escalado para atendimento humano",
+                tipo_atendimento="humano"
+            )
+
     try:
         _run_async(_execute())
         return "Atendimento escalado para humano. A etiqueta 'agente-off' foi adicionada."

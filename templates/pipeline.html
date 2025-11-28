@@ -1,0 +1,753 @@
+{% extends "base.html" %}
+
+{% block title %}Pipeline de Atendimento - Secretaria IA{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pipeline-container {
+        display: flex;
+        gap: 1rem;
+        overflow-x: auto;
+        padding-bottom: 1rem;
+        min-height: calc(100vh - 200px);
+    }
+
+    .pipeline-column {
+        min-width: 280px;
+        max-width: 320px;
+        flex-shrink: 0;
+    }
+
+    .pipeline-header {
+        padding: 1rem;
+        border-radius: 16px 16px 0 0;
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .pipeline-header .badge {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.6rem;
+    }
+
+    .pipeline-body {
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 0 0 16px 16px;
+        min-height: 400px;
+        padding: 0.75rem;
+    }
+
+    .conversa-card {
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        cursor: grab;
+        transition: all 0.2s ease;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .conversa-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .conversa-card.dragging {
+        opacity: 0.5;
+        cursor: grabbing;
+    }
+
+    .conversa-card .telefone {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        font-family: 'Monaco', monospace;
+    }
+
+    .conversa-card .nome {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .conversa-card .ultima-msg {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+    }
+
+    .conversa-card .timestamp {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        margin-top: 0.5rem;
+    }
+
+    .conversa-card {
+        position: relative;
+    }
+
+    .btn-fechar-card {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: rgba(239, 68, 68, 0.1);
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        cursor: pointer;
+        opacity: 0;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ef4444;
+    }
+
+    .conversa-card:hover .btn-fechar-card {
+        opacity: 1;
+    }
+
+    .btn-fechar-card:hover {
+        background: #ef4444;
+        color: white;
+    }
+
+    .conversa-card .agendamento-info {
+        background: rgba(34, 197, 94, 0.1);
+        border-radius: 8px;
+        padding: 0.5rem;
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .badge-atendimento {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.7rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 20px;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+
+    .badge-agente {
+        background: rgba(99, 102, 241, 0.15);
+        color: #6366f1;
+    }
+
+    .badge-humano {
+        background: rgba(245, 158, 11, 0.15);
+        color: #d97706;
+    }
+
+    .badge-manual {
+        background: rgba(107, 114, 128, 0.15);
+        color: #4b5563;
+    }
+
+    /* Cores das colunas */
+    .col-novo_contato .pipeline-header {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white;
+    }
+
+    .col-em_atendimento .pipeline-header {
+        background: linear-gradient(135deg, #f59e0b, #f97316);
+        color: white;
+    }
+
+    .col-aguardando_resposta .pipeline-header {
+        background: linear-gradient(135deg, #3b82f6, #0ea5e9);
+        color: white;
+    }
+
+    .col-agendado .pipeline-header {
+        background: linear-gradient(135deg, #22c55e, #10b981);
+        color: white;
+    }
+
+    .col-finalizado .pipeline-header {
+        background: linear-gradient(135deg, #6b7280, #9ca3af);
+        color: white;
+    }
+
+    .pipeline-body.drag-over {
+        background: rgba(0, 113, 227, 0.1);
+        border: 2px dashed var(--primary-color);
+    }
+
+    .stats-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .stat-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: var(--glass-border);
+        border-radius: 16px;
+        padding: 1rem 1.5rem;
+        flex: 1;
+        min-width: 150px;
+    }
+
+    .stat-card .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .stat-card .stat-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    .empty-column {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-secondary);
+    }
+
+    .empty-column i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        opacity: 0.5;
+    }
+
+    .btn-action {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        border-radius: 6px;
+    }
+
+    .conversa-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">Pipeline de Atendimento</h2>
+        <p class="text-secondary mb-0">Acompanhe o fluxo de conversas</p>
+    </div>
+    <button class="btn btn-primary shadow-sm" onclick="novaConversa()">
+        <i class="bi bi-plus-lg me-1"></i> Novo Contato
+    </button>
+</div>
+
+<!-- Stats -->
+<div class="stats-row" id="statsRow">
+    <div class="stat-card">
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-label">Total de Conversas</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="statNovos">0</div>
+        <div class="stat-label">Novos Contatos</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="statAtendimento">0</div>
+        <div class="stat-label">Em Atendimento</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="statAgendados">0</div>
+        <div class="stat-label">Agendados</div>
+    </div>
+</div>
+
+<!-- Pipeline Kanban -->
+<div class="pipeline-container">
+    <!-- Novo Contato -->
+    <div class="pipeline-column col-novo_contato">
+        <div class="pipeline-header">
+            <span><i class="bi bi-person-plus me-2"></i>Novo Contato</span>
+            <span class="badge bg-white text-dark" id="countNovo">0</span>
+        </div>
+        <div class="pipeline-body" data-etapa="novo_contato" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+            <!-- Cards serao inseridos aqui -->
+        </div>
+    </div>
+
+    <!-- Em Atendimento -->
+    <div class="pipeline-column col-em_atendimento">
+        <div class="pipeline-header">
+            <span><i class="bi bi-chat-dots me-2"></i>Em Atendimento</span>
+            <span class="badge bg-white text-dark" id="countAtendimento">0</span>
+        </div>
+        <div class="pipeline-body" data-etapa="em_atendimento" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+        </div>
+    </div>
+
+    <!-- Aguardando Resposta -->
+    <div class="pipeline-column col-aguardando_resposta">
+        <div class="pipeline-header">
+            <span><i class="bi bi-hourglass-split me-2"></i>Aguardando</span>
+            <span class="badge bg-white text-dark" id="countAguardando">0</span>
+        </div>
+        <div class="pipeline-body" data-etapa="aguardando_resposta" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+        </div>
+    </div>
+
+    <!-- Agendado -->
+    <div class="pipeline-column col-agendado">
+        <div class="pipeline-header">
+            <span><i class="bi bi-calendar-check me-2"></i>Agendado</span>
+            <span class="badge bg-white text-dark" id="countAgendado">0</span>
+        </div>
+        <div class="pipeline-body" data-etapa="agendado" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+        </div>
+    </div>
+
+    <!-- Finalizado -->
+    <div class="pipeline-column col-finalizado">
+        <div class="pipeline-header">
+            <span><i class="bi bi-check-circle me-2"></i>Finalizado</span>
+            <span class="badge bg-white text-dark" id="countFinalizado">0</span>
+        </div>
+        <div class="pipeline-body" data-etapa="finalizado" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+        </div>
+    </div>
+</div>
+
+<!-- Modal Conversa -->
+<div class="modal fade" id="modalConversa" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalConversaTitle">Nova Conversa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formConversa">
+                    <input type="hidden" id="conversaId">
+                    <input type="hidden" id="conversaTipoAtendimento" value="manual">
+                    <div class="mb-3">
+                        <label class="form-label">Telefone *</label>
+                        <input type="text" class="form-control" id="conversaTelefone" required
+                            placeholder="5511999999999">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nome do Paciente</label>
+                        <input type="text" class="form-control" id="conversaNome"
+                            placeholder="Nome completo">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Etapa</label>
+                        <select class="form-select" id="conversaEtapa">
+                            <option value="novo_contato">Novo Contato</option>
+                            <option value="em_atendimento">Em Atendimento</option>
+                            <option value="aguardando_resposta">Aguardando Resposta</option>
+                            <option value="agendado">Agendado</option>
+                            <option value="finalizado">Finalizado</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observacoes</label>
+                        <textarea class="form-control" id="conversaObs" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-outline-danger d-none" id="btnDeletarConversa" onclick="deletarConversa()">
+                    <i class="bi bi-trash me-1"></i> Excluir
+                </button>
+                <button type="button" class="btn btn-primary" onclick="salvarConversa()">
+                    <i class="bi bi-save me-1"></i> Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalhes -->
+<div class="modal fade" id="modalDetalhes" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes da Conversa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-secondary mb-3">Informacoes</h6>
+                        <div id="detalhesInfo"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-secondary mb-3">Historico de Mensagens</h6>
+                        <div id="detalhesHistorico" style="max-height: 400px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger" onclick="excluirConversaAtual()">
+                    <i class="bi bi-trash me-1"></i> Excluir
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-primary" onclick="editarConversaAtual()">
+                    <i class="bi bi-pencil me-1"></i> Editar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let conversas = [];
+    let conversaAtualId = null;
+
+    const etapas = ['novo_contato', 'em_atendimento', 'aguardando_resposta', 'agendado', 'finalizado'];
+    const etapaNomes = {
+        'novo_contato': 'Novo Contato',
+        'em_atendimento': 'Em Atendimento',
+        'aguardando_resposta': 'Aguardando Resposta',
+        'agendado': 'Agendado',
+        'finalizado': 'Finalizado'
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        carregarConversas();
+        // Atualiza a cada 30 segundos
+        setInterval(carregarConversas, 30000);
+    });
+
+    async function carregarConversas() {
+        try {
+            const data = await apiCall('/api/admin/pipeline');
+            conversas = data.conversas || [];
+            renderizarPipeline();
+            atualizarStats(data.stats || {});
+        } catch (error) {
+            console.error('Erro ao carregar conversas:', error);
+        }
+    }
+
+    function atualizarStats(stats) {
+        const total = Object.values(stats).reduce((a, b) => a + b, 0);
+        document.getElementById('statTotal').textContent = total;
+        document.getElementById('statNovos').textContent = stats.novo_contato || 0;
+        document.getElementById('statAtendimento').textContent = stats.em_atendimento || 0;
+        document.getElementById('statAgendados').textContent = stats.agendado || 0;
+
+        // Atualiza contadores das colunas
+        document.getElementById('countNovo').textContent = stats.novo_contato || 0;
+        document.getElementById('countAtendimento').textContent = stats.em_atendimento || 0;
+        document.getElementById('countAguardando').textContent = stats.aguardando_resposta || 0;
+        document.getElementById('countAgendado').textContent = stats.agendado || 0;
+        document.getElementById('countFinalizado').textContent = stats.finalizado || 0;
+    }
+
+    function renderizarPipeline() {
+        // Limpa todas as colunas
+        etapas.forEach(etapa => {
+            const container = document.querySelector(`.pipeline-body[data-etapa="${etapa}"]`);
+            container.innerHTML = '';
+        });
+
+        // Agrupa conversas por etapa
+        const porEtapa = {};
+        etapas.forEach(e => porEtapa[e] = []);
+
+        conversas.forEach(c => {
+            if (porEtapa[c.etapa]) {
+                porEtapa[c.etapa].push(c);
+            }
+        });
+
+        // Renderiza cada etapa
+        etapas.forEach(etapa => {
+            const container = document.querySelector(`.pipeline-body[data-etapa="${etapa}"]`);
+            const lista = porEtapa[etapa];
+
+            if (lista.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-column">
+                        <i class="bi bi-inbox d-block"></i>
+                        <small>Nenhuma conversa</small>
+                    </div>
+                `;
+            } else {
+                lista.forEach(c => {
+                    container.innerHTML += criarCardHTML(c);
+                });
+            }
+        });
+    }
+
+    function criarCardHTML(conversa) {
+        const telefoneFormatado = formatarTelefone(conversa.telefone);
+        const tempoAtras = formatarTempoAtras(conversa.ultima_atualizacao);
+
+        let agendamentoHTML = '';
+        if (conversa.agendamento_data) {
+            const dataAg = new Date(conversa.agendamento_data);
+            agendamentoHTML = `
+                <div class="agendamento-info">
+                    <i class="bi bi-calendar-check me-1"></i>
+                    ${dataAg.toLocaleDateString('pt-BR')} as ${dataAg.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}
+                    ${conversa.profissional_nome ? `<br><small>${conversa.profissional_nome}</small>` : ''}
+                </div>
+            `;
+        }
+
+        // Prioridade de nome: nome_paciente do pipeline > nome do agendamento > telefone
+        const nomeExibido = conversa.nome_paciente || conversa.agendamento_paciente || telefoneFormatado || 'Contato desconhecido';
+        const mostrarTelefone = (conversa.nome_paciente || conversa.agendamento_paciente) ? true : false;
+
+        // Badge de atendimento baseado no tipo_atendimento do banco
+        const tipoAtendimento = conversa.tipo_atendimento || 'agente';
+        let badgeAtendimento = '';
+        if (tipoAtendimento === 'manual') {
+            badgeAtendimento = `<span class="badge-atendimento badge-manual"><i class="bi bi-pencil-fill"></i> Manual</span>`;
+        } else if (tipoAtendimento === 'humano') {
+            badgeAtendimento = `<span class="badge-atendimento badge-humano"><i class="bi bi-person-fill"></i> Humano</span>`;
+        } else {
+            badgeAtendimento = `<span class="badge-atendimento badge-agente"><i class="bi bi-robot"></i> Agente</span>`;
+        }
+
+        return `
+            <div class="conversa-card" draggable="true" data-id="${conversa.id}"
+                 ondragstart="drag(event)" onclick="verDetalhes(${conversa.id})">
+                <button class="btn-fechar-card" onclick="event.stopPropagation(); excluirCardRapido(${conversa.id})" title="Excluir conversa">
+                    <i class="bi bi-x"></i>
+                </button>
+                ${badgeAtendimento}
+                <div class="nome">${nomeExibido}</div>
+                ${mostrarTelefone ? `<div class="telefone">${telefoneFormatado}</div>` : ''}
+                ${conversa.ultima_mensagem ? `<div class="ultima-msg">${escapeHtml(conversa.ultima_mensagem)}</div>` : ''}
+                ${agendamentoHTML}
+                <div class="timestamp">
+                    <i class="bi bi-clock me-1"></i>${tempoAtras}
+                </div>
+            </div>
+        `;
+    }
+
+    function formatarTelefone(telefone) {
+        if (!telefone) return '';
+        // Remove o 55 do inicio se tiver
+        let tel = telefone.replace(/^\+?55/, '');
+        // Formata como (XX) XXXXX-XXXX
+        if (tel.length === 11) {
+            return `(${tel.slice(0,2)}) ${tel.slice(2,7)}-${tel.slice(7)}`;
+        }
+        return telefone;
+    }
+
+    function formatarTempoAtras(dataStr) {
+        if (!dataStr) return '';
+        const data = new Date(dataStr);
+        const agora = new Date();
+        const diff = Math.floor((agora - data) / 1000);
+
+        if (diff < 60) return 'Agora';
+        if (diff < 3600) return `${Math.floor(diff/60)}min atras`;
+        if (diff < 86400) return `${Math.floor(diff/3600)}h atras`;
+        return `${Math.floor(diff/86400)}d atras`;
+    }
+
+    // Drag and Drop
+    function allowDrop(ev) {
+        ev.preventDefault();
+        ev.target.closest('.pipeline-body').classList.add('drag-over');
+    }
+
+    function dragLeave(ev) {
+        ev.target.closest('.pipeline-body').classList.remove('drag-over');
+    }
+
+    function drag(ev) {
+        ev.dataTransfer.setData("text", ev.target.dataset.id);
+        ev.target.classList.add('dragging');
+    }
+
+    async function drop(ev) {
+        ev.preventDefault();
+        const container = ev.target.closest('.pipeline-body');
+        container.classList.remove('drag-over');
+
+        const conversaId = ev.dataTransfer.getData("text");
+        const novaEtapa = container.dataset.etapa;
+
+        // Remove classe de drag
+        document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+
+        try {
+            await apiCall(`/api/admin/pipeline/${conversaId}/mover`, 'POST', {
+                etapa: novaEtapa
+            });
+            await carregarConversas();
+            showToast('Conversa movida!');
+        } catch (error) {
+            showToast('Erro ao mover conversa: ' + error.message, 'danger');
+        }
+    }
+
+    function novaConversa() {
+        document.getElementById('modalConversaTitle').textContent = 'Nova Conversa';
+        document.getElementById('formConversa').reset();
+        document.getElementById('conversaId').value = '';
+        document.getElementById('conversaTipoAtendimento').value = 'manual';
+        document.getElementById('btnDeletarConversa').classList.add('d-none');
+        new bootstrap.Modal(document.getElementById('modalConversa')).show();
+    }
+
+    async function verDetalhes(id) {
+        conversaAtualId = id;
+        const conversa = conversas.find(c => c.id === id);
+        if (!conversa) return;
+
+        // Info basica
+        const infoHTML = `
+            <p><strong>Telefone:</strong> ${formatarTelefone(conversa.telefone)}</p>
+            <p><strong>Nome:</strong> ${conversa.nome_paciente || 'Nao informado'}</p>
+            <p><strong>Etapa:</strong> ${etapaNomes[conversa.etapa]}</p>
+            <p><strong>Criado em:</strong> ${new Date(conversa.created_at).toLocaleString('pt-BR')}</p>
+            <p><strong>Ultima atualizacao:</strong> ${new Date(conversa.ultima_atualizacao).toLocaleString('pt-BR')}</p>
+            ${conversa.observacoes ? `<p><strong>Observacoes:</strong> ${conversa.observacoes}</p>` : ''}
+        `;
+        document.getElementById('detalhesInfo').innerHTML = infoHTML;
+
+        // Busca historico
+        try {
+            const data = await apiCall(`/api/admin/pipeline/${id}/historico`);
+            const mensagens = data.mensagens || [];
+
+            if (mensagens.length === 0) {
+                document.getElementById('detalhesHistorico').innerHTML = '<p class="text-muted">Nenhuma mensagem encontrada</p>';
+            } else {
+                let historicoHTML = '';
+                mensagens.forEach(m => {
+                    const isUser = m.role === 'user';
+                    historicoHTML += `
+                        <div class="mb-2 ${isUser ? 'text-start' : 'text-end'}">
+                            <small class="text-muted">${isUser ? 'Paciente' : 'Agente'} - ${new Date(m.created_at).toLocaleTimeString('pt-BR')}</small>
+                            <div class="p-2 rounded ${isUser ? 'bg-light' : 'bg-primary text-white'}" style="display: inline-block; max-width: 80%;">
+                                ${escapeHtml(m.content)}
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('detalhesHistorico').innerHTML = historicoHTML;
+            }
+        } catch (error) {
+            document.getElementById('detalhesHistorico').innerHTML = '<p class="text-danger">Erro ao carregar historico</p>';
+        }
+
+        new bootstrap.Modal(document.getElementById('modalDetalhes')).show();
+    }
+
+    function editarConversaAtual() {
+        bootstrap.Modal.getInstance(document.getElementById('modalDetalhes')).hide();
+        const conversa = conversas.find(c => c.id === conversaAtualId);
+        if (!conversa) return;
+
+        document.getElementById('modalConversaTitle').textContent = 'Editar Conversa';
+        document.getElementById('conversaId').value = conversa.id;
+        document.getElementById('conversaTelefone').value = conversa.telefone;
+        document.getElementById('conversaNome').value = conversa.nome_paciente || '';
+        document.getElementById('conversaEtapa').value = conversa.etapa;
+        document.getElementById('conversaObs').value = conversa.observacoes || '';
+        document.getElementById('conversaTipoAtendimento').value = conversa.tipo_atendimento || 'agente';
+        document.getElementById('btnDeletarConversa').classList.remove('d-none');
+
+        new bootstrap.Modal(document.getElementById('modalConversa')).show();
+    }
+
+    async function salvarConversa() {
+        const id = document.getElementById('conversaId').value;
+        const tipoAtendimento = document.getElementById('conversaTipoAtendimento').value;
+        const data = {
+            telefone: document.getElementById('conversaTelefone').value,
+            nome_paciente: document.getElementById('conversaNome').value || null,
+            etapa: document.getElementById('conversaEtapa').value,
+            observacoes: document.getElementById('conversaObs').value || null,
+            tipo_atendimento: tipoAtendimento
+        };
+
+        try {
+            if (id) {
+                await apiCall(`/api/admin/pipeline/${id}`, 'PUT', data);
+                showToast('Conversa atualizada!');
+            } else {
+                // Nova conversa criada manualmente
+                data.tipo_atendimento = 'manual';
+                await apiCall('/api/admin/pipeline', 'POST', data);
+                showToast('Conversa criada!');
+            }
+            bootstrap.Modal.getInstance(document.getElementById('modalConversa')).hide();
+            await carregarConversas();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+
+    async function deletarConversa() {
+        const id = document.getElementById('conversaId').value;
+        if (!id) return;
+
+        if (!confirm('Tem certeza que deseja excluir esta conversa?')) return;
+
+        try {
+            await apiCall(`/api/admin/pipeline/${id}`, 'DELETE');
+            showToast('Conversa excluida!');
+            bootstrap.Modal.getInstance(document.getElementById('modalConversa')).hide();
+            await carregarConversas();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+
+    async function excluirConversaAtual() {
+        if (!conversaAtualId) return;
+
+        if (!confirm('Tem certeza que deseja excluir esta conversa? Uma nova conversa sera criada quando a pessoa enviar uma nova mensagem.')) return;
+
+        try {
+            await apiCall(`/api/admin/pipeline/${conversaAtualId}`, 'DELETE');
+            showToast('Conversa excluida!');
+            bootstrap.Modal.getInstance(document.getElementById('modalDetalhes')).hide();
+            await carregarConversas();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+
+    async function excluirCardRapido(id) {
+        if (!confirm('Excluir esta conversa?')) return;
+
+        try {
+            await apiCall(`/api/admin/pipeline/${id}`, 'DELETE');
+            showToast('Conversa excluida!');
+            await carregarConversas();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

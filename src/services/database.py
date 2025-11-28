@@ -60,6 +60,41 @@ class DatabaseService:
                 )
             """)
 
+            # Tabela de conversas (pipeline de atendimento)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS pipeline_conversas (
+                    id SERIAL PRIMARY KEY,
+                    telefone VARCHAR(50) NOT NULL,
+                    nome_paciente VARCHAR(255),
+                    etapa VARCHAR(50) NOT NULL DEFAULT 'novo_contato',
+                    conversation_id VARCHAR(255),
+                    ultima_mensagem TEXT,
+                    ultima_atualizacao TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    agendamento_id INTEGER,
+                    observacoes TEXT,
+                    tipo_atendimento VARCHAR(20) DEFAULT 'agente',
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+            """)
+
+            # Adiciona coluna tipo_atendimento se nao existir (para tabelas existentes)
+            await conn.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'pipeline_conversas' AND column_name = 'tipo_atendimento'
+                    ) THEN
+                        ALTER TABLE pipeline_conversas ADD COLUMN tipo_atendimento VARCHAR(20) DEFAULT 'agente';
+                    END IF;
+                END $$;
+            """)
+
+            # Atualiza registros existentes que estao com NULL para 'agente'
+            await conn.execute("""
+                UPDATE pipeline_conversas SET tipo_atendimento = 'agente' WHERE tipo_atendimento IS NULL
+            """)
+
             # Índices para melhor performance
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_fila_telefone
@@ -68,6 +103,14 @@ class DatabaseService:
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_historico_session
                 ON n8n_historico_mensagens(session_id, created_at)
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_pipeline_etapa
+                ON pipeline_conversas(etapa)
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_pipeline_telefone
+                ON pipeline_conversas(telefone)
             """)
 
     # --- Fila de Mensagens ---
@@ -195,6 +238,155 @@ class DatabaseService:
                 DELETE FROM n8n_historico_mensagens
                 WHERE session_id = $1
             """, session_id)
+
+    # --- Pipeline de Conversas ---
+
+    async def pipeline_upsert_conversa(
+        self,
+        telefone: str,
+        etapa: str = None,
+        nome_paciente: str = None,
+        conversation_id: str = None,
+        ultima_mensagem: str = None,
+        agendamento_id: int = None,
+        observacoes: str = None,
+        tipo_atendimento: str = None
+    ) -> int:
+        """Cria ou atualiza uma conversa no pipeline"""
+        async with self.pool.acquire() as conn:
+            # Verifica se ja existe
+            existing = await conn.fetchrow("""
+                SELECT id FROM pipeline_conversas WHERE telefone = $1
+            """, telefone)
+
+            if existing:
+                # Atualiza
+                updates = ["ultima_atualizacao = NOW()"]
+                params = []
+                param_num = 1
+
+                if etapa:
+                    params.append(etapa)
+                    updates.append(f"etapa = ${param_num}")
+                    param_num += 1
+                if nome_paciente:
+                    params.append(nome_paciente)
+                    updates.append(f"nome_paciente = ${param_num}")
+                    param_num += 1
+                if conversation_id:
+                    params.append(conversation_id)
+                    updates.append(f"conversation_id = ${param_num}")
+                    param_num += 1
+                if ultima_mensagem:
+                    params.append(ultima_mensagem)
+                    updates.append(f"ultima_mensagem = ${param_num}")
+                    param_num += 1
+                if agendamento_id is not None:
+                    params.append(agendamento_id)
+                    updates.append(f"agendamento_id = ${param_num}")
+                    param_num += 1
+                if observacoes:
+                    params.append(observacoes)
+                    updates.append(f"observacoes = ${param_num}")
+                    param_num += 1
+                if tipo_atendimento:
+                    params.append(tipo_atendimento)
+                    updates.append(f"tipo_atendimento = ${param_num}")
+                    param_num += 1
+
+                params.append(telefone)
+                query = f"UPDATE pipeline_conversas SET {', '.join(updates)} WHERE telefone = ${param_num}"
+                await conn.execute(query, *params)
+                return existing["id"]
+            else:
+                # Cria novo
+                row = await conn.fetchrow("""
+                    INSERT INTO pipeline_conversas
+                    (telefone, etapa, nome_paciente, conversation_id, ultima_mensagem, agendamento_id, observacoes, tipo_atendimento)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    RETURNING id
+                """, telefone, etapa or "novo_contato", nome_paciente, conversation_id, ultima_mensagem, agendamento_id, observacoes, tipo_atendimento or "agente")
+                return row["id"]
+
+    async def pipeline_listar_conversas(self, etapa: str = None) -> list:
+        """Lista todas as conversas do pipeline"""
+        async with self.pool.acquire() as conn:
+            if etapa:
+                rows = await conn.fetch("""
+                    SELECT pc.*,
+                           a.paciente_nome as agendamento_paciente,
+                           a.data_hora as agendamento_data,
+                           p.nome as profissional_nome
+                    FROM pipeline_conversas pc
+                    LEFT JOIN agendamentos a ON pc.agendamento_id = a.id
+                    LEFT JOIN profissionais p ON a.profissional_id = p.id
+                    WHERE pc.etapa = $1
+                    ORDER BY pc.ultima_atualizacao DESC
+                """, etapa)
+            else:
+                rows = await conn.fetch("""
+                    SELECT pc.*,
+                           a.paciente_nome as agendamento_paciente,
+                           a.data_hora as agendamento_data,
+                           p.nome as profissional_nome
+                    FROM pipeline_conversas pc
+                    LEFT JOIN agendamentos a ON pc.agendamento_id = a.id
+                    LEFT JOIN profissionais p ON a.profissional_id = p.id
+                    ORDER BY pc.ultima_atualizacao DESC
+                """)
+            return [dict(row) for row in rows]
+
+    async def pipeline_mover_etapa(self, conversa_id: int, nova_etapa: str) -> bool:
+        """Move uma conversa para outra etapa"""
+        async with self.pool.acquire() as conn:
+            result = await conn.execute("""
+                UPDATE pipeline_conversas
+                SET etapa = $1, ultima_atualizacao = NOW()
+                WHERE id = $2
+            """, nova_etapa, conversa_id)
+            return result != "UPDATE 0"
+
+    async def pipeline_buscar_por_telefone(self, telefone: str) -> dict:
+        """Busca uma conversa pelo telefone"""
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT pc.*,
+                       a.paciente_nome as agendamento_paciente,
+                       a.data_hora as agendamento_data,
+                       p.nome as profissional_nome
+                FROM pipeline_conversas pc
+                LEFT JOIN agendamentos a ON pc.agendamento_id = a.id
+                LEFT JOIN profissionais p ON a.profissional_id = p.id
+                WHERE pc.telefone = $1
+            """, telefone)
+            return dict(row) if row else None
+
+    async def pipeline_deletar_conversa(self, conversa_id: int) -> bool:
+        """Remove uma conversa do pipeline"""
+        async with self.pool.acquire() as conn:
+            # Primeiro verifica se existe
+            existing = await conn.fetchrow("""
+                SELECT id FROM pipeline_conversas WHERE id = $1
+            """, conversa_id)
+            if not existing:
+                return False
+
+            # Deleta
+            await conn.execute("""
+                DELETE FROM pipeline_conversas WHERE id = $1
+            """, conversa_id)
+            return True
+
+    async def pipeline_stats(self) -> dict:
+        """Retorna estatisticas do pipeline"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT etapa, COUNT(*) as total
+                FROM pipeline_conversas
+                GROUP BY etapa
+            """)
+            stats = {row["etapa"]: row["total"] for row in rows}
+            return stats
 
 
 # Instância global do serviço
