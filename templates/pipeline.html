@@ -388,6 +388,50 @@
                     <div class="col-md-6">
                         <h6 class="text-secondary mb-3">Informacoes</h6>
                         <div id="detalhesInfo"></div>
+
+                        <!-- Formulario de Agendamento -->
+                        <div id="formAgendamentoContainer" class="mt-4 p-3 rounded" style="background: rgba(34, 197, 94, 0.1);">
+                            <h6 class="mb-3"><i class="bi bi-calendar-plus me-2"></i>Criar Agendamento</h6>
+                            <div class="mb-2">
+                                <label class="form-label small">Profissional *</label>
+                                <select class="form-select form-select-sm" id="agProfissional" onchange="buscarHorariosAgendamento()">
+                                    <option value="">Selecione...</option>
+                                </select>
+                            </div>
+                            <div class="row">
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small">Data *</label>
+                                    <input type="date" class="form-control form-control-sm" id="agData" onchange="buscarHorariosAgendamento()">
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small">Horario *</label>
+                                    <select class="form-select form-select-sm" id="agHorario">
+                                        <option value="">Selecione data primeiro</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small">Observacoes</label>
+                                <input type="text" class="form-control form-control-sm" id="agObservacoes" placeholder="Opcional">
+                            </div>
+                            <button type="button" class="btn btn-success btn-sm w-100" onclick="criarAgendamentoPipeline()">
+                                <i class="bi bi-calendar-check me-1"></i> Agendar Consulta
+                            </button>
+                        </div>
+
+                        <!-- Info do Agendamento Existente -->
+                        <div id="agendamentoExistenteContainer" class="mt-4 p-3 rounded d-none" style="background: rgba(34, 197, 94, 0.1);">
+                            <h6 class="mb-2"><i class="bi bi-calendar-check me-2 text-success"></i>Agendamento</h6>
+                            <div id="agendamentoExistenteInfo"></div>
+                            <div class="d-flex gap-2 mt-2">
+                                <button type="button" class="btn btn-outline-success btn-sm flex-grow-1" onclick="confirmarAgendamentoPipeline()">
+                                    <i class="bi bi-check-circle me-1"></i> Confirmar
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm flex-grow-1" onclick="cancelarAgendamentoPipeline()">
+                                    <i class="bi bi-x-circle me-1"></i> Cancelar
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <h6 class="text-secondary mb-3">Historico de Mensagens</h6>
@@ -413,6 +457,8 @@
 <script>
     let conversas = [];
     let conversaAtualId = null;
+    let profissionais = [];
+    let agendamentoAtualId = null;
 
     const etapas = ['novo_contato', 'em_atendimento', 'aguardando_resposta', 'agendado', 'finalizado'];
     const etapaNomes = {
@@ -425,9 +471,21 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         carregarConversas();
+        carregarProfissionais();
         // Atualiza a cada 30 segundos
         setInterval(carregarConversas, 30000);
     });
+
+    async function carregarProfissionais() {
+        try {
+            const data = await apiCall('/api/admin/profissionais');
+            profissionais = data.profissionais || [];
+            const options = profissionais.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+            document.getElementById('agProfissional').innerHTML = '<option value="">Selecione...</option>' + options;
+        } catch (error) {
+            console.error('Erro ao carregar profissionais:', error);
+        }
+    }
 
     async function carregarConversas() {
         try {
@@ -652,6 +710,9 @@
             document.getElementById('detalhesHistorico').innerHTML = '<p class="text-danger">Erro ao carregar historico</p>';
         }
 
+        // Mostra formulario de agendamento ou info do agendamento existente
+        mostrarFormAgendamento(conversa);
+
         new bootstrap.Modal(document.getElementById('modalDetalhes')).show();
     }
 
@@ -748,6 +809,136 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // --- Funcoes de Agendamento ---
+
+    async function buscarHorariosAgendamento() {
+        const profId = document.getElementById('agProfissional').value;
+        const data = document.getElementById('agData').value;
+        const select = document.getElementById('agHorario');
+
+        if (!profId || !data) {
+            select.innerHTML = '<option value="">Selecione profissional e data</option>';
+            return;
+        }
+
+        try {
+            const result = await apiCall(`/api/admin/horarios-disponiveis?profissional_id=${profId}&data=${data}`);
+            const horarios = result.horarios || [];
+
+            if (horarios.length === 0) {
+                select.innerHTML = '<option value="">Nenhum horario disponivel</option>';
+            } else {
+                select.innerHTML = '<option value="">Selecione...</option>' +
+                    horarios.map(h => `<option value="${h}">${h}</option>`).join('');
+            }
+        } catch (error) {
+            select.innerHTML = '<option value="">Erro ao buscar horarios</option>';
+        }
+    }
+
+    async function criarAgendamentoPipeline() {
+        const conversa = conversas.find(c => c.id === conversaAtualId);
+        if (!conversa) return;
+
+        const profId = document.getElementById('agProfissional').value;
+        const data = document.getElementById('agData').value;
+        const horario = document.getElementById('agHorario').value;
+        const observacoes = document.getElementById('agObservacoes').value;
+
+        if (!profId || !data || !horario) {
+            showToast('Preencha profissional, data e horario', 'danger');
+            return;
+        }
+
+        const dadosAgendamento = {
+            profissional_id: parseInt(profId),
+            paciente_nome: conversa.nome_paciente || 'Paciente',
+            paciente_telefone: conversa.telefone,
+            data_hora: `${data}T${horario}:00`,
+            duracao_minutos: 30,
+            observacoes: observacoes || null
+        };
+
+        try {
+            await apiCall('/api/admin/agendamentos', 'POST', dadosAgendamento);
+            showToast('Agendamento criado com sucesso!');
+
+            // Atualiza o pipeline para etapa "agendado"
+            await apiCall(`/api/admin/pipeline/${conversaAtualId}/mover`, 'POST', {
+                etapa: 'agendado'
+            });
+
+            bootstrap.Modal.getInstance(document.getElementById('modalDetalhes')).hide();
+            await carregarConversas();
+        } catch (error) {
+            showToast('Erro ao criar agendamento: ' + error.message, 'danger');
+        }
+    }
+
+    async function confirmarAgendamentoPipeline() {
+        if (!agendamentoAtualId) return;
+
+        try {
+            await apiCall(`/api/admin/agendamentos/${agendamentoAtualId}/confirmar`, 'POST');
+            showToast('Agendamento confirmado!');
+            await carregarConversas();
+            // Atualiza info do agendamento
+            await verDetalhes(conversaAtualId);
+        } catch (error) {
+            showToast('Erro ao confirmar: ' + error.message, 'danger');
+        }
+    }
+
+    async function cancelarAgendamentoPipeline() {
+        if (!agendamentoAtualId) return;
+
+        if (!confirm('Tem certeza que deseja cancelar este agendamento?')) return;
+
+        try {
+            await apiCall(`/api/admin/agendamentos/${agendamentoAtualId}/cancelar`, 'POST');
+            showToast('Agendamento cancelado!');
+            await carregarConversas();
+            // Atualiza info do agendamento
+            await verDetalhes(conversaAtualId);
+        } catch (error) {
+            showToast('Erro ao cancelar: ' + error.message, 'danger');
+        }
+    }
+
+    function mostrarFormAgendamento(conversa) {
+        const formContainer = document.getElementById('formAgendamentoContainer');
+        const existenteContainer = document.getElementById('agendamentoExistenteContainer');
+
+        // Reseta campos
+        document.getElementById('agProfissional').value = '';
+        document.getElementById('agData').value = '';
+        document.getElementById('agHorario').innerHTML = '<option value="">Selecione data primeiro</option>';
+        document.getElementById('agObservacoes').value = '';
+
+        // Se tem agendamento, mostra info do agendamento
+        if (conversa.agendamento_id && conversa.agendamento_data) {
+            formContainer.classList.add('d-none');
+            existenteContainer.classList.remove('d-none');
+
+            agendamentoAtualId = conversa.agendamento_id;
+            const dataAg = new Date(conversa.agendamento_data);
+            document.getElementById('agendamentoExistenteInfo').innerHTML = `
+                <p class="mb-1"><strong>Data:</strong> ${dataAg.toLocaleDateString('pt-BR')} as ${dataAg.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</p>
+                ${conversa.profissional_nome ? `<p class="mb-1"><strong>Profissional:</strong> ${conversa.profissional_nome}</p>` : ''}
+                <p class="mb-0"><strong>Paciente:</strong> ${conversa.agendamento_paciente || conversa.nome_paciente || 'Nao informado'}</p>
+            `;
+        } else {
+            // Mostra formulario para criar
+            formContainer.classList.remove('d-none');
+            existenteContainer.classList.add('d-none');
+            agendamentoAtualId = null;
+
+            // Define data minima como hoje
+            const hoje = new Date().toISOString().split('T')[0];
+            document.getElementById('agData').min = hoje;
+        }
     }
 </script>
 {% endblock %}
