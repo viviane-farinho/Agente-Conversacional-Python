@@ -1,0 +1,122 @@
+{% extends "tenant/base_tenant.html" %}
+
+{% block title %}Configuracoes - {{ tenant.nome }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-gear me-2"></i>Configuracoes</h2>
+</div>
+
+<div class="row">
+    <!-- Dados do Tenant -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-building me-2"></i>Dados da Empresa
+            </div>
+            <div class="card-body">
+                <form id="formDadosEmpresa">
+                    <div class="mb-3">
+                        <label class="form-label">Nome da Empresa</label>
+                        <input type="text" class="form-control" id="inputNome" value="{{ tenant.nome }}" readonly>
+                        <small class="text-muted">Entre em contato com o suporte para alterar</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Slug</label>
+                        <input type="text" class="form-control" id="inputSlug" value="{{ tenant.slug }}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="inputEmail" value="{{ tenant.email or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Telefone</label>
+                        <input type="text" class="form-control" id="inputTelefone" value="{{ tenant.telefone or '' }}">
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="salvarDados()">
+                        <i class="bi bi-check-lg me-1"></i>Salvar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Integracoes -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-plug me-2"></i>Integracoes
+            </div>
+            <div class="card-body">
+                <form id="formIntegracoes">
+                    <div class="mb-3">
+                        <label class="form-label">Chatwoot URL</label>
+                        <input type="text" class="form-control" id="inputChatwootUrl" value="{{ tenant.chatwoot_url or '' }}" placeholder="https://app.chatwoot.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Telegram Chat ID</label>
+                        <input type="text" class="form-control" id="inputTelegramChatId" value="{{ tenant.telegram_chat_id or '' }}" placeholder="ID do chat para alertas">
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="salvarIntegracoes()">
+                        <i class="bi bi-check-lg me-1"></i>Salvar
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Plano -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="bi bi-star me-2"></i>Seu Plano
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <h4 class="mb-0 me-3">{{ tenant.plano|capitalize }}</h4>
+                    <span class="badge bg-success">Ativo</span>
+                </div>
+                <p class="text-muted mb-0">
+                    {% if tenant.plano == 'basico' %}
+                    Plano basico com funcionalidades essenciais.
+                    {% elif tenant.plano == 'profissional' %}
+                    Plano profissional com recursos avancados.
+                    {% else %}
+                    Plano enterprise com todos os recursos.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function salvarDados() {
+        const dados = {
+            email: document.getElementById('inputEmail').value || null,
+            telefone: document.getElementById('inputTelefone').value || null
+        };
+
+        try {
+            await apiCall(`/api/admin/tenants/${TENANT_ID}`, 'PUT', dados);
+            showToast('Dados salvos com sucesso!');
+        } catch (error) {
+            showToast('Erro ao salvar: ' + error.message, 'danger');
+        }
+    }
+
+    async function salvarIntegracoes() {
+        const dados = {
+            chatwoot_url: document.getElementById('inputChatwootUrl').value || null,
+            telegram_chat_id: document.getElementById('inputTelegramChatId').value || null
+        };
+
+        try {
+            await apiCall(`/api/admin/tenants/${TENANT_ID}`, 'PUT', dados);
+            showToast('Integracoes salvas!');
+        } catch (error) {
+            showToast('Erro ao salvar: ' + error.message, 'danger');
+        }
+    }
+</script>
+{% endblock %}

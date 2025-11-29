@@ -1,0 +1,208 @@
+{% extends "tenant/base_tenant.html" %}
+
+{% block title %}Base de Conhecimento - {{ tenant.nome }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-database me-2"></i>Base de Conhecimento</h2>
+    <button class="btn btn-primary" onclick="mostrarModalDocumento()">
+        <i class="bi bi-plus-lg me-2"></i>Novo Documento
+    </button>
+</div>
+
+<div class="row">
+    <!-- Filtros -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-funnel me-2"></i>Filtros
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Agente</label>
+                    <select class="form-select" id="filtroAgente" onchange="carregarDocumentos()">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Categoria</label>
+                    <select class="form-select" id="filtroCategoria" onchange="carregarDocumentos()">
+                        <option value="">Todas</option>
+                        <option value="procedimentos">Procedimentos</option>
+                        <option value="precos">Precos</option>
+                        <option value="horarios">Horarios</option>
+                        <option value="faq">FAQ</option>
+                        <option value="outro">Outro</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Documentos -->
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-file-text me-2"></i>Documentos
+            </div>
+            <div class="card-body p-0">
+                <div id="listaDocumentos">
+                    <div class="text-center p-4 text-muted">Carregando...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Documento -->
+<div class="modal fade" id="modalDocumento" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Novo Documento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Agente *</label>
+                        <select class="form-select" id="inputDocAgente" required>
+                            <option value="">Selecione...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Categoria</label>
+                        <select class="form-select" id="inputDocCategoria">
+                            <option value="">Sem categoria</option>
+                            <option value="procedimentos">Procedimentos</option>
+                            <option value="precos">Precos</option>
+                            <option value="horarios">Horarios</option>
+                            <option value="faq">FAQ</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Titulo *</label>
+                    <input type="text" class="form-control" id="inputDocTitulo" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Conteudo *</label>
+                    <textarea class="form-control" id="inputDocConteudo" rows="10" required placeholder="Digite o conteudo do documento..."></textarea>
+                    <small class="text-muted">Este conteudo sera usado pelo agente para responder perguntas</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarDocumento()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let agentes = [];
+    let documentos = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        carregarAgentes();
+    });
+
+    async function carregarAgentes() {
+        try {
+            const data = await apiCall(`/api/admin/tenants/${TENANT_ID}/agentes?apenas_ativos=false`);
+            agentes = data.agentes || [];
+
+            // Popula selects de agentes
+            const options = agentes.map(a => `<option value="${a.id}">${escapeHtml(a.nome)}</option>`).join('');
+            document.getElementById('filtroAgente').innerHTML = '<option value="">Todos</option>' + options;
+            document.getElementById('inputDocAgente').innerHTML = '<option value="">Selecione...</option>' + options;
+
+            await carregarDocumentos();
+        } catch (error) {
+            showToast('Erro ao carregar: ' + error.message, 'danger');
+        }
+    }
+
+    async function carregarDocumentos() {
+        const container = document.getElementById('listaDocumentos');
+        const agenteId = document.getElementById('filtroAgente').value;
+        const categoria = document.getElementById('filtroCategoria').value;
+
+        if (agentes.length === 0) {
+            container.innerHTML = `
+                <div class="text-center p-4">
+                    <i class="bi bi-robot text-muted" style="font-size: 3rem;"></i>
+                    <p class="text-muted mt-2">Crie um agente primeiro</p>
+                    <a href="/tenant/${TENANT_SLUG}/agentes" class="btn btn-primary">Criar Agente</a>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = '<div class="text-center p-4 text-muted">Carregando...</div>';
+
+        try {
+            // Se tem agente selecionado, busca docs desse agente
+            if (agenteId) {
+                // TODO: Implementar API de documentos RAG por agente
+                container.innerHTML = `
+                    <div class="text-center p-4">
+                        <i class="bi bi-file-text text-muted" style="font-size: 3rem;"></i>
+                        <p class="text-muted mt-2">Base de conhecimento por agente ainda em desenvolvimento</p>
+                        <p class="text-muted small">Por enquanto, use a Base de Conhecimento global em /admin/rag</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="text-center p-4">
+                        <i class="bi bi-database text-muted" style="font-size: 3rem;"></i>
+                        <p class="text-muted mt-2">Selecione um agente para ver seus documentos</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            container.innerHTML = '<p class="text-danger p-4">Erro ao carregar documentos</p>';
+        }
+    }
+
+    function mostrarModalDocumento() {
+        if (agentes.length === 0) {
+            showToast('Crie um agente primeiro', 'warning');
+            return;
+        }
+
+        document.getElementById('inputDocAgente').value = '';
+        document.getElementById('inputDocCategoria').value = '';
+        document.getElementById('inputDocTitulo').value = '';
+        document.getElementById('inputDocConteudo').value = '';
+
+        new bootstrap.Modal(document.getElementById('modalDocumento')).show();
+    }
+
+    async function salvarDocumento() {
+        const agenteId = document.getElementById('inputDocAgente').value;
+        const categoria = document.getElementById('inputDocCategoria').value;
+        const titulo = document.getElementById('inputDocTitulo').value;
+        const conteudo = document.getElementById('inputDocConteudo').value;
+
+        if (!agenteId || !titulo || !conteudo) {
+            showToast('Preencha todos os campos obrigatorios', 'warning');
+            return;
+        }
+
+        // TODO: Implementar salvamento de documento RAG por agente
+        showToast('Funcionalidade em desenvolvimento', 'info');
+        bootstrap.Modal.getInstance(document.getElementById('modalDocumento')).hide();
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

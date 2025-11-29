@@ -1,0 +1,151 @@
+{% extends "tenant/base_tenant.html" %}
+
+{% block title %}Prompts - {{ tenant.nome }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-chat-square-text me-2"></i>Prompts</h2>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-chat-text me-2"></i>Prompts dos Agentes
+            </div>
+            <div class="card-body">
+                <div id="listaPrompts">
+                    <div class="text-center p-4 text-muted">Carregando...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Prompt -->
+<div class="modal fade" id="modalPrompt" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Prompt - <span id="modalAgenteNome"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="promptAgenteId">
+                <div class="mb-3">
+                    <label class="form-label">System Prompt</label>
+                    <textarea class="form-control" id="inputPromptTexto" rows="15" placeholder="Digite o prompt do agente..."></textarea>
+                    <small class="text-muted">Este prompt define o comportamento e personalidade do agente</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarPrompt()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let agentes = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        carregarAgentes();
+    });
+
+    async function carregarAgentes() {
+        try {
+            const data = await apiCall(`/api/admin/tenants/${TENANT_ID}/agentes?apenas_ativos=false`);
+            agentes = data.agentes || [];
+            await carregarPrompts();
+        } catch (error) {
+            showToast('Erro ao carregar: ' + error.message, 'danger');
+        }
+    }
+
+    async function carregarPrompts() {
+        const container = document.getElementById('listaPrompts');
+
+        if (agentes.length === 0) {
+            container.innerHTML = `
+                <div class="text-center p-4">
+                    <i class="bi bi-robot text-muted" style="font-size: 3rem;"></i>
+                    <p class="text-muted mt-2">Nenhum agente cadastrado</p>
+                    <a href="/tenant/${TENANT_SLUG}/agentes" class="btn btn-primary">Criar Agente</a>
+                </div>
+            `;
+            return;
+        }
+
+        // Carrega detalhes de cada agente
+        let html = '';
+        for (const agente of agentes) {
+            try {
+                const data = await apiCall(`/api/admin/agentes/${agente.id}`);
+                const a = data.agente;
+
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${escapeHtml(a.nome)}</strong>
+                                <span class="badge ${a.ativo ? 'bg-success' : 'bg-secondary'} ms-2">${a.ativo ? 'Ativo' : 'Inativo'}</span>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="editarPrompt(${a.id}, '${escapeHtml(a.nome)}')">
+                                <i class="bi bi-pencil me-1"></i>Editar
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <pre class="bg-light p-3 rounded mb-0" style="white-space: pre-wrap; max-height: 150px; overflow-y: auto;">${a.system_prompt ? escapeHtml(a.system_prompt) : '<em class="text-muted">Usando prompt padrao do sistema</em>'}</pre>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Erro ao carregar agente:', error);
+            }
+        }
+
+        container.innerHTML = html || '<p class="text-muted">Nenhum prompt configurado</p>';
+    }
+
+    async function editarPrompt(agenteId, agenteNome) {
+        try {
+            const data = await apiCall(`/api/admin/agentes/${agenteId}`);
+            const agente = data.agente;
+
+            document.getElementById('promptAgenteId').value = agenteId;
+            document.getElementById('modalAgenteNome').textContent = agenteNome;
+            document.getElementById('inputPromptTexto').value = agente.system_prompt || '';
+
+            new bootstrap.Modal(document.getElementById('modalPrompt')).show();
+        } catch (error) {
+            showToast('Erro ao carregar prompt: ' + error.message, 'danger');
+        }
+    }
+
+    async function salvarPrompt() {
+        const agenteId = document.getElementById('promptAgenteId').value;
+        const prompt = document.getElementById('inputPromptTexto').value;
+
+        try {
+            await apiCall(`/api/admin/agentes/${agenteId}`, 'PUT', {
+                system_prompt: prompt || null
+            });
+            showToast('Prompt salvo!');
+            bootstrap.Modal.getInstance(document.getElementById('modalPrompt')).hide();
+            await carregarPrompts();
+        } catch (error) {
+            showToast('Erro ao salvar: ' + error.message, 'danger');
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

@@ -1545,6 +1545,96 @@ async def admin_tenants_page(request: Request):
     return templates.TemplateResponse("tenants.html", {"request": request})
 
 
+# --- Endpoints Area do Tenant (por slug) ---
+
+async def get_tenant_or_404(slug: str):
+    """Helper para buscar tenant por slug ou retornar 404"""
+    tenant_svc = await get_tenant_service()
+    tenant = await tenant_svc.buscar_tenant_por_slug(slug)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant nao encontrado")
+    if not tenant.ativo:
+        raise HTTPException(status_code=403, detail="Tenant inativo")
+    return tenant
+
+
+@app.get("/tenant/{slug}", response_class=HTMLResponse)
+async def tenant_dashboard(request: Request, slug: str):
+    """Dashboard do tenant"""
+    tenant = await get_tenant_or_404(slug)
+    return templates.TemplateResponse("tenant/dashboard.html", {
+        "request": request,
+        "tenant": tenant,
+        "active_page": "dashboard"
+    })
+
+
+@app.get("/tenant/{slug}/agenda", response_class=HTMLResponse)
+async def tenant_agenda(request: Request, slug: str):
+    """Pagina de agenda do tenant"""
+    tenant = await get_tenant_or_404(slug)
+    return templates.TemplateResponse("tenant/agenda.html", {
+        "request": request,
+        "tenant": tenant,
+        "active_page": "agenda"
+    })
+
+
+@app.get("/tenant/{slug}/pipeline", response_class=HTMLResponse)
+async def tenant_pipeline(request: Request, slug: str):
+    """Pagina de pipeline do tenant"""
+    tenant = await get_tenant_or_404(slug)
+    return templates.TemplateResponse("tenant/pipeline.html", {
+        "request": request,
+        "tenant": tenant,
+        "active_page": "pipeline"
+    })
+
+
+@app.get("/tenant/{slug}/agentes", response_class=HTMLResponse)
+async def tenant_agentes(request: Request, slug: str):
+    """Pagina de agentes do tenant"""
+    tenant = await get_tenant_or_404(slug)
+    return templates.TemplateResponse("tenant/agentes.html", {
+        "request": request,
+        "tenant": tenant,
+        "active_page": "agentes"
+    })
+
+
+@app.get("/tenant/{slug}/prompts", response_class=HTMLResponse)
+async def tenant_prompts(request: Request, slug: str):
+    """Pagina de prompts do tenant"""
+    tenant = await get_tenant_or_404(slug)
+    return templates.TemplateResponse("tenant/prompts.html", {
+        "request": request,
+        "tenant": tenant,
+        "active_page": "prompts"
+    })
+
+
+@app.get("/tenant/{slug}/rag", response_class=HTMLResponse)
+async def tenant_rag(request: Request, slug: str):
+    """Pagina de RAG do tenant"""
+    tenant = await get_tenant_or_404(slug)
+    return templates.TemplateResponse("tenant/rag.html", {
+        "request": request,
+        "tenant": tenant,
+        "active_page": "rag"
+    })
+
+
+@app.get("/tenant/{slug}/configuracoes", response_class=HTMLResponse)
+async def tenant_configuracoes(request: Request, slug: str):
+    """Pagina de configuracoes do tenant"""
+    tenant = await get_tenant_or_404(slug)
+    return templates.TemplateResponse("tenant/configuracoes.html", {
+        "request": request,
+        "tenant": tenant,
+        "active_page": "configuracoes"
+    })
+
+
 # --- Execucao ---
 
 if __name__ == "__main__":
