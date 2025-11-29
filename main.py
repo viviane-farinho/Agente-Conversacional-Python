@@ -20,7 +20,9 @@ from src.services.chatwoot import chatwoot_service
 from src.services.audio import audio_service
 from src.services.rag import get_rag_service
 from src.services.agenda import get_agenda_service
+from src.services.tenant import get_tenant_service, TenantService
 from src.agent.graph import get_agent
+from src.agent.multi_agent import get_multi_agent_runner
 
 
 # --- Modelos Pydantic ---
@@ -131,6 +133,82 @@ class PipelineMoverEtapa(BaseModel):
     etapa: str
 
 
+# --- Modelos Pydantic para Multi-tenant ---
+
+class TenantBase(BaseModel):
+    nome: str
+    slug: str
+    email: Optional[str] = None
+    telefone: Optional[str] = None
+    endereco: Optional[str] = None
+    plano: str = "basico"
+    chatwoot_url: Optional[str] = None
+    chatwoot_api_token: Optional[str] = None
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
+
+
+class TenantUpdate(BaseModel):
+    nome: Optional[str] = None
+    email: Optional[str] = None
+    telefone: Optional[str] = None
+    endereco: Optional[str] = None
+    plano: Optional[str] = None
+    ativo: Optional[bool] = None
+    chatwoot_url: Optional[str] = None
+    chatwoot_api_token: Optional[str] = None
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
+
+
+class AgenteBase(BaseModel):
+    tenant_id: int
+    nome: str
+    descricao: Optional[str] = None
+    chatwoot_account_id: Optional[str] = None
+    chatwoot_inbox_id: Optional[str] = None
+    system_prompt: Optional[str] = None
+    modelo_llm: str = "google/gemini-2.0-flash-001"
+    temperatura: float = 0.7
+    max_tokens: int = 4096
+    info_empresa: Optional[dict] = None
+
+
+class AgenteUpdate(BaseModel):
+    nome: Optional[str] = None
+    descricao: Optional[str] = None
+    chatwoot_account_id: Optional[str] = None
+    chatwoot_inbox_id: Optional[str] = None
+    system_prompt: Optional[str] = None
+    modelo_llm: Optional[str] = None
+    temperatura: Optional[float] = None
+    max_tokens: Optional[int] = None
+    info_empresa: Optional[dict] = None
+    ativo: Optional[bool] = None
+
+
+class SubAgenteBase(BaseModel):
+    agente_id: int
+    nome: str
+    tipo: str
+    descricao: Optional[str] = None
+    system_prompt: Optional[str] = None
+    ferramentas: Optional[list] = None
+    condicao_ativacao: Optional[str] = None
+    prioridade: int = 0
+
+
+class SubAgenteUpdate(BaseModel):
+    nome: Optional[str] = None
+    tipo: Optional[str] = None
+    descricao: Optional[str] = None
+    system_prompt: Optional[str] = None
+    ferramentas: Optional[list] = None
+    condicao_ativacao: Optional[str] = None
+    prioridade: Optional[int] = None
+    ativo: Optional[bool] = None
+
+
 # --- Contexto do App ---
 
 @asynccontextmanager
@@ -140,6 +218,14 @@ async def lifespan(app: FastAPI):
     print("Iniciando Secretaria IA...")
     db = await get_db_service()
     print("Banco de dados conectado")
+
+    # Executa migracoes multi-tenant
+    try:
+        tenant_svc = await get_tenant_service()
+        await tenant_svc.run_migrations()
+        print("Migracoes multi-tenant executadas")
+    except Exception as e:
+        print(f"Aviso: Migracoes multi-tenant nao executadas: {e}")
 
     # Inicializa RAG
     try:
@@ -287,19 +373,44 @@ async def process_incoming_message(
         typing_status = "recording" if is_audio else "on"
         await chatwoot_service.set_typing_status(account_id, conversation_id, typing_status)
 
-        # Processa com o agente
-        agent = get_agent()
-        response = await agent.process_message(
-            message=final_message,
-            phone=phone,
-            account_id=account_id,
-            conversation_id=conversation_id,
-            message_id=message_id,
-            telegram_chat_id=telegram_chat_id,
-            is_audio_message=is_audio
-        )
+        # Tenta usar o sistema multi-agente se houver agente configurado
+        response = None
+        try:
+            tenant_svc = await get_tenant_service()
+            agente = await tenant_svc.buscar_agente_por_chatwoot(account_id)
 
-        # Formata a resposta
+            if agente:
+                # Usa sistema multi-agente
+                print(f"Usando agente configurado: {agente.nome} (ID: {agente.id})")
+                multi_agent = await get_multi_agent_runner()
+                response = await multi_agent.process_message(
+                    agente=agente,
+                    message=final_message,
+                    phone=phone,
+                    account_id=account_id,
+                    conversation_id=conversation_id,
+                    message_id=message_id,
+                    telegram_chat_id=telegram_chat_id,
+                    is_audio_message=is_audio
+                )
+        except Exception as e:
+            print(f"Aviso: Multi-agente nao disponivel, usando agente padrao: {e}")
+
+        # Fallback para agente padrao se multi-agente nao processou
+        if not response:
+            agent = get_agent()
+            response = await agent.process_message(
+                message=final_message,
+                phone=phone,
+                account_id=account_id,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                telegram_chat_id=telegram_chat_id,
+                is_audio_message=is_audio
+            )
+
+        # Formata a resposta (usa agente padrao para formatacao)
+        agent = get_agent()
         formatted_response = await agent.format_response_for_whatsapp(response)
 
         # Desliga o status de digitacao
@@ -1086,6 +1197,352 @@ async def api_historico_conversa_pipeline(conversa_id: int):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- API Multi-Tenant ---
+
+@app.get("/api/admin/tenants")
+async def api_listar_tenants(apenas_ativos: bool = True):
+    """Lista todos os tenants"""
+    try:
+        tenant_svc = await get_tenant_service()
+        tenants = await tenant_svc.listar_tenants(apenas_ativos=apenas_ativos)
+        return {"tenants": [
+            {
+                "id": t.id,
+                "nome": t.nome,
+                "slug": t.slug,
+                "email": t.email,
+                "telefone": t.telefone,
+                "plano": t.plano,
+                "ativo": t.ativo
+            } for t in tenants
+        ]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/tenants/{tenant_id}")
+async def api_buscar_tenant(tenant_id: int):
+    """Busca um tenant por ID"""
+    try:
+        tenant_svc = await get_tenant_service()
+        tenant = await tenant_svc.buscar_tenant(tenant_id)
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant nao encontrado")
+        return {
+            "tenant": {
+                "id": tenant.id,
+                "nome": tenant.nome,
+                "slug": tenant.slug,
+                "email": tenant.email,
+                "telefone": tenant.telefone,
+                "endereco": tenant.endereco,
+                "plano": tenant.plano,
+                "ativo": tenant.ativo,
+                "chatwoot_url": tenant.chatwoot_url,
+                "telegram_chat_id": tenant.telegram_chat_id,
+                "agentes": [
+                    {
+                        "id": a.id,
+                        "nome": a.nome,
+                        "descricao": a.descricao,
+                        "chatwoot_account_id": a.chatwoot_account_id,
+                        "modelo_llm": a.modelo_llm,
+                        "ativo": a.ativo
+                    } for a in tenant.agentes
+                ]
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/tenants")
+async def api_criar_tenant(tenant: TenantBase):
+    """Cria um novo tenant"""
+    try:
+        tenant_svc = await get_tenant_service()
+        novo_tenant = await tenant_svc.criar_tenant(
+            nome=tenant.nome,
+            slug=tenant.slug,
+            email=tenant.email,
+            telefone=tenant.telefone,
+            endereco=tenant.endereco,
+            plano=tenant.plano,
+            chatwoot_url=tenant.chatwoot_url,
+            chatwoot_api_token=tenant.chatwoot_api_token,
+            telegram_bot_token=tenant.telegram_bot_token,
+            telegram_chat_id=tenant.telegram_chat_id
+        )
+        return {"id": novo_tenant.id, "message": "Tenant criado com sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/admin/tenants/{tenant_id}")
+async def api_atualizar_tenant(tenant_id: int, tenant: TenantUpdate):
+    """Atualiza um tenant"""
+    try:
+        tenant_svc = await get_tenant_service()
+        atualizado = await tenant_svc.atualizar_tenant(
+            tenant_id=tenant_id,
+            nome=tenant.nome,
+            email=tenant.email,
+            telefone=tenant.telefone,
+            endereco=tenant.endereco,
+            plano=tenant.plano,
+            ativo=tenant.ativo,
+            chatwoot_url=tenant.chatwoot_url,
+            chatwoot_api_token=tenant.chatwoot_api_token,
+            telegram_bot_token=tenant.telegram_bot_token,
+            telegram_chat_id=tenant.telegram_chat_id
+        )
+        if not atualizado:
+            raise HTTPException(status_code=404, detail="Tenant nao encontrado")
+        return {"message": "Tenant atualizado"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/tenants/{tenant_id}")
+async def api_deletar_tenant(tenant_id: int):
+    """Deleta um tenant"""
+    try:
+        tenant_svc = await get_tenant_service()
+        success = await tenant_svc.deletar_tenant(tenant_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Tenant nao encontrado")
+        return {"message": "Tenant deletado"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- API Agentes ---
+
+@app.get("/api/admin/tenants/{tenant_id}/agentes")
+async def api_listar_agentes(tenant_id: int, apenas_ativos: bool = True):
+    """Lista agentes de um tenant"""
+    try:
+        tenant_svc = await get_tenant_service()
+        agentes = await tenant_svc.listar_agentes(tenant_id, apenas_ativos=apenas_ativos)
+        return {"agentes": [
+            {
+                "id": a.id,
+                "tenant_id": a.tenant_id,
+                "nome": a.nome,
+                "descricao": a.descricao,
+                "chatwoot_account_id": a.chatwoot_account_id,
+                "chatwoot_inbox_id": a.chatwoot_inbox_id,
+                "modelo_llm": a.modelo_llm,
+                "temperatura": a.temperatura,
+                "ativo": a.ativo
+            } for a in agentes
+        ]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/agentes/{agente_id}")
+async def api_buscar_agente(agente_id: int):
+    """Busca um agente por ID"""
+    try:
+        tenant_svc = await get_tenant_service()
+        agente = await tenant_svc.buscar_agente(agente_id)
+        if not agente:
+            raise HTTPException(status_code=404, detail="Agente nao encontrado")
+        return {
+            "agente": {
+                "id": agente.id,
+                "tenant_id": agente.tenant_id,
+                "nome": agente.nome,
+                "descricao": agente.descricao,
+                "chatwoot_account_id": agente.chatwoot_account_id,
+                "chatwoot_inbox_id": agente.chatwoot_inbox_id,
+                "system_prompt": agente.system_prompt,
+                "modelo_llm": agente.modelo_llm,
+                "temperatura": agente.temperatura,
+                "max_tokens": agente.max_tokens,
+                "info_empresa": agente.info_empresa,
+                "ativo": agente.ativo,
+                "sub_agentes": [
+                    {
+                        "id": sa.id,
+                        "nome": sa.nome,
+                        "tipo": sa.tipo,
+                        "descricao": sa.descricao,
+                        "prioridade": sa.prioridade,
+                        "ativo": sa.ativo
+                    } for sa in agente.sub_agentes
+                ]
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/agentes")
+async def api_criar_agente(agente: AgenteBase):
+    """Cria um novo agente"""
+    try:
+        tenant_svc = await get_tenant_service()
+        novo_agente = await tenant_svc.criar_agente(
+            tenant_id=agente.tenant_id,
+            nome=agente.nome,
+            descricao=agente.descricao,
+            chatwoot_account_id=agente.chatwoot_account_id,
+            chatwoot_inbox_id=agente.chatwoot_inbox_id,
+            system_prompt=agente.system_prompt,
+            modelo_llm=agente.modelo_llm,
+            temperatura=agente.temperatura,
+            max_tokens=agente.max_tokens,
+            info_empresa=agente.info_empresa
+        )
+        return {"id": novo_agente.id, "message": "Agente criado com sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/admin/agentes/{agente_id}")
+async def api_atualizar_agente(agente_id: int, agente: AgenteUpdate):
+    """Atualiza um agente"""
+    try:
+        tenant_svc = await get_tenant_service()
+        atualizado = await tenant_svc.atualizar_agente(
+            agente_id=agente_id,
+            nome=agente.nome,
+            descricao=agente.descricao,
+            chatwoot_account_id=agente.chatwoot_account_id,
+            chatwoot_inbox_id=agente.chatwoot_inbox_id,
+            system_prompt=agente.system_prompt,
+            modelo_llm=agente.modelo_llm,
+            temperatura=agente.temperatura,
+            max_tokens=agente.max_tokens,
+            info_empresa=agente.info_empresa,
+            ativo=agente.ativo
+        )
+        if not atualizado:
+            raise HTTPException(status_code=404, detail="Agente nao encontrado")
+        return {"message": "Agente atualizado"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/agentes/{agente_id}")
+async def api_deletar_agente(agente_id: int):
+    """Deleta um agente"""
+    try:
+        tenant_svc = await get_tenant_service()
+        success = await tenant_svc.deletar_agente(agente_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Agente nao encontrado")
+        return {"message": "Agente deletado"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- API Sub-Agentes ---
+
+@app.get("/api/admin/agentes/{agente_id}/sub-agentes")
+async def api_listar_sub_agentes(agente_id: int, apenas_ativos: bool = True):
+    """Lista sub-agentes de um agente"""
+    try:
+        tenant_svc = await get_tenant_service()
+        sub_agentes = await tenant_svc.listar_sub_agentes(agente_id, apenas_ativos=apenas_ativos)
+        return {"sub_agentes": [
+            {
+                "id": sa.id,
+                "agente_id": sa.agente_id,
+                "nome": sa.nome,
+                "tipo": sa.tipo,
+                "descricao": sa.descricao,
+                "condicao_ativacao": sa.condicao_ativacao,
+                "prioridade": sa.prioridade,
+                "ativo": sa.ativo
+            } for sa in sub_agentes
+        ]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/sub-agentes")
+async def api_criar_sub_agente(sub_agente: SubAgenteBase):
+    """Cria um novo sub-agente"""
+    try:
+        tenant_svc = await get_tenant_service()
+        novo_sub = await tenant_svc.criar_sub_agente(
+            agente_id=sub_agente.agente_id,
+            nome=sub_agente.nome,
+            tipo=sub_agente.tipo,
+            descricao=sub_agente.descricao,
+            system_prompt=sub_agente.system_prompt,
+            ferramentas=sub_agente.ferramentas,
+            condicao_ativacao=sub_agente.condicao_ativacao,
+            prioridade=sub_agente.prioridade
+        )
+        return {"id": novo_sub.id, "message": "Sub-agente criado com sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/admin/sub-agentes/{sub_agente_id}")
+async def api_atualizar_sub_agente(sub_agente_id: int, sub_agente: SubAgenteUpdate):
+    """Atualiza um sub-agente"""
+    try:
+        tenant_svc = await get_tenant_service()
+        atualizado = await tenant_svc.atualizar_sub_agente(
+            sub_agente_id=sub_agente_id,
+            nome=sub_agente.nome,
+            tipo=sub_agente.tipo,
+            descricao=sub_agente.descricao,
+            system_prompt=sub_agente.system_prompt,
+            ferramentas=sub_agente.ferramentas,
+            condicao_ativacao=sub_agente.condicao_ativacao,
+            prioridade=sub_agente.prioridade,
+            ativo=sub_agente.ativo
+        )
+        if not atualizado:
+            raise HTTPException(status_code=404, detail="Sub-agente nao encontrado")
+        return {"message": "Sub-agente atualizado"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/sub-agentes/{sub_agente_id}")
+async def api_deletar_sub_agente(sub_agente_id: int):
+    """Deleta um sub-agente"""
+    try:
+        tenant_svc = await get_tenant_service()
+        success = await tenant_svc.deletar_sub_agente(sub_agente_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Sub-agente nao encontrado")
+        return {"message": "Sub-agente deletado"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Endpoints Admin Multi-tenant (HTML) ---
+
+@app.get("/admin/tenants", response_class=HTMLResponse)
+async def admin_tenants_page(request: Request):
+    """Pagina de gerenciamento de tenants"""
+    return templates.TemplateResponse("tenants.html", {"request": request})
 
 
 # --- Execucao ---

@@ -1,0 +1,691 @@
+{% extends "base.html" %}
+
+{% block title %}Tenants - Secretaria IA{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-building me-2"></i>Tenants e Agentes</h2>
+    <button class="btn btn-primary" onclick="mostrarModalTenant()">
+        <i class="bi bi-plus-lg me-2"></i>Novo Tenant
+    </button>
+</div>
+
+<div class="row">
+    <!-- Lista de Tenants -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-building me-2"></i>Tenants
+            </div>
+            <div class="card-body p-0">
+                <div id="listaTenants" class="list-group list-group-flush">
+                    <div class="text-center p-4 text-muted">Carregando...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalhes do Tenant -->
+    <div class="col-md-8">
+        <div class="card" id="cardDetalhes" style="display: none;">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-info-circle me-2"></i>Detalhes do Tenant</span>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm me-2" onclick="editarTenant()">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="deletarTenant()">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5 id="tenantNome">-</h5>
+                        <p class="text-muted mb-1">
+                            <small>Slug: <span id="tenantSlug">-</span></small>
+                        </p>
+                        <p class="text-muted mb-1">
+                            <small>Plano: <span id="tenantPlano" class="badge bg-primary">-</span></small>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1"><i class="bi bi-envelope me-2"></i><span id="tenantEmail">-</span></p>
+                        <p class="mb-1"><i class="bi bi-telephone me-2"></i><span id="tenantTelefone">-</span></p>
+                    </div>
+                </div>
+
+                <!-- Agentes do Tenant -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0"><i class="bi bi-robot me-2"></i>Agentes</h6>
+                    <button class="btn btn-sm btn-outline-primary" onclick="mostrarModalAgente()">
+                        <i class="bi bi-plus-lg me-1"></i>Novo Agente
+                    </button>
+                </div>
+                <div id="listaAgentes">
+                    <p class="text-muted">Nenhum agente cadastrado</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card vazio -->
+        <div class="card" id="cardVazio">
+            <div class="card-body text-center p-5">
+                <i class="bi bi-building text-muted" style="font-size: 4rem;"></i>
+                <p class="text-muted mt-3">Selecione um tenant para ver os detalhes</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Tenant -->
+<div class="modal fade" id="modalTenant" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTenantTitulo">Novo Tenant</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="tenantId">
+                <div class="mb-3">
+                    <label class="form-label">Nome *</label>
+                    <input type="text" class="form-control" id="inputNome" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Slug * <small class="text-muted">(identificador unico)</small></label>
+                    <input type="text" class="form-control" id="inputSlug" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="inputEmail">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Telefone</label>
+                        <input type="text" class="form-control" id="inputTelefone">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Plano</label>
+                    <select class="form-select" id="inputPlano">
+                        <option value="basico">Basico</option>
+                        <option value="profissional">Profissional</option>
+                        <option value="enterprise">Enterprise</option>
+                    </select>
+                </div>
+                <hr>
+                <h6 class="mb-3">Integracoes</h6>
+                <div class="mb-3">
+                    <label class="form-label">Chatwoot URL</label>
+                    <input type="text" class="form-control" id="inputChatwootUrl" placeholder="https://app.chatwoot.com">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Telegram Chat ID</label>
+                    <input type="text" class="form-control" id="inputTelegramChatId">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarTenant()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Agente -->
+<div class="modal fade" id="modalAgente" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAgenteTitulo">Novo Agente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="agenteId">
+                <input type="hidden" id="agenteTenantId">
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Nome *</label>
+                        <input type="text" class="form-control" id="inputAgenteNome" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Modelo LLM</label>
+                        <select class="form-select" id="inputAgenteModelo">
+                            <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
+                            <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                            <option value="openai/gpt-4o">GPT-4o</option>
+                            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Descricao</label>
+                    <input type="text" class="form-control" id="inputAgenteDescricao">
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Chatwoot Account ID</label>
+                        <input type="text" class="form-control" id="inputAgenteChatwootAccount">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Chatwoot Inbox ID</label>
+                        <input type="text" class="form-control" id="inputAgenteChatwootInbox">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Temperatura</label>
+                        <input type="number" class="form-control" id="inputAgenteTemperatura" min="0" max="2" step="0.1" value="0.7">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Max Tokens</label>
+                        <input type="number" class="form-control" id="inputAgenteMaxTokens" value="4096">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">System Prompt <small class="text-muted">(deixe vazio para usar o padrao)</small></label>
+                    <textarea class="form-control" id="inputAgentePrompt" rows="6" placeholder="Prompt personalizado do agente..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarAgente()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalhes Agente -->
+<div class="modal fade" id="modalDetalhesAgente" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-robot me-2"></i><span id="detalhesAgenteNome">Agente</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Modelo:</strong> <span id="detalhesAgenteModelo">-</span></p>
+                        <p class="mb-1"><strong>Temperatura:</strong> <span id="detalhesAgenteTemp">-</span></p>
+                        <p class="mb-1"><strong>Max Tokens:</strong> <span id="detalhesAgenteTokens">-</span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Chatwoot Account:</strong> <span id="detalhesAgenteCwAccount">-</span></p>
+                        <p class="mb-1"><strong>Chatwoot Inbox:</strong> <span id="detalhesAgenteCwInbox">-</span></p>
+                    </div>
+                </div>
+
+                <!-- Sub-agentes -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Sub-agentes</h6>
+                    <button class="btn btn-sm btn-outline-primary" onclick="mostrarModalSubAgente()">
+                        <i class="bi bi-plus-lg me-1"></i>Novo Sub-agente
+                    </button>
+                </div>
+                <div id="listaSubAgentes">
+                    <p class="text-muted">Nenhum sub-agente cadastrado</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger" onclick="deletarAgente()">
+                    <i class="bi bi-trash me-1"></i>Deletar
+                </button>
+                <button type="button" class="btn btn-outline-primary" onclick="editarAgente()">
+                    <i class="bi bi-pencil me-1"></i>Editar
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sub-agente -->
+<div class="modal fade" id="modalSubAgente" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalSubAgenteTitulo">Novo Sub-agente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="subAgenteId">
+                <input type="hidden" id="subAgenteAgenteId">
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Nome *</label>
+                        <input type="text" class="form-control" id="inputSubAgenteNome" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Tipo *</label>
+                        <select class="form-select" id="inputSubAgenteTipo">
+                            <option value="agendamento">Agendamento</option>
+                            <option value="informacao">Informacao</option>
+                            <option value="cobranca">Cobranca</option>
+                            <option value="suporte">Suporte</option>
+                            <option value="vendas">Vendas</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Descricao</label>
+                    <input type="text" class="form-control" id="inputSubAgenteDescricao">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Condicao de Ativacao <small class="text-muted">(palavras-chave)</small></label>
+                    <input type="text" class="form-control" id="inputSubAgenteCondicao" placeholder="agendar, marcar, consulta">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Prioridade</label>
+                    <input type="number" class="form-control" id="inputSubAgentePrioridade" value="0">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">System Prompt <small class="text-muted">(opcional)</small></label>
+                    <textarea class="form-control" id="inputSubAgentePrompt" rows="4"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarSubAgente()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let tenants = [];
+    let tenantAtual = null;
+    let agenteAtual = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        carregarTenants();
+    });
+
+    async function carregarTenants() {
+        try {
+            const data = await apiCall('/api/admin/tenants?apenas_ativos=false');
+            tenants = data.tenants || [];
+            renderizarTenants();
+        } catch (error) {
+            showToast('Erro ao carregar tenants: ' + error.message, 'danger');
+        }
+    }
+
+    function renderizarTenants() {
+        const container = document.getElementById('listaTenants');
+
+        if (tenants.length === 0) {
+            container.innerHTML = '<div class="text-center p-4 text-muted">Nenhum tenant cadastrado</div>';
+            return;
+        }
+
+        container.innerHTML = tenants.map(t => `
+            <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ${tenantAtual?.id === t.id ? 'active' : ''}"
+               onclick="selecionarTenant(${t.id})">
+                <div>
+                    <strong>${escapeHtml(t.nome)}</strong>
+                    <br><small class="text-muted">${escapeHtml(t.slug)}</small>
+                </div>
+                <span class="badge ${t.ativo ? 'bg-success' : 'bg-secondary'}">${t.plano}</span>
+            </a>
+        `).join('');
+    }
+
+    async function selecionarTenant(tenantId) {
+        try {
+            const data = await apiCall(`/api/admin/tenants/${tenantId}`);
+            tenantAtual = data.tenant;
+
+            document.getElementById('cardVazio').style.display = 'none';
+            document.getElementById('cardDetalhes').style.display = 'block';
+
+            document.getElementById('tenantNome').textContent = tenantAtual.nome;
+            document.getElementById('tenantSlug').textContent = tenantAtual.slug;
+            document.getElementById('tenantPlano').textContent = tenantAtual.plano;
+            document.getElementById('tenantEmail').textContent = tenantAtual.email || '-';
+            document.getElementById('tenantTelefone').textContent = tenantAtual.telefone || '-';
+
+            renderizarAgentes(tenantAtual.agentes || []);
+            renderizarTenants();
+        } catch (error) {
+            showToast('Erro ao carregar tenant: ' + error.message, 'danger');
+        }
+    }
+
+    function renderizarAgentes(agentes) {
+        const container = document.getElementById('listaAgentes');
+
+        if (!agentes || agentes.length === 0) {
+            container.innerHTML = '<p class="text-muted">Nenhum agente cadastrado</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Modelo</th>
+                            <th>Chatwoot Account</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${agentes.map(a => `
+                            <tr>
+                                <td><strong>${escapeHtml(a.nome)}</strong></td>
+                                <td><small>${escapeHtml(a.modelo_llm)}</small></td>
+                                <td><small>${a.chatwoot_account_id || '-'}</small></td>
+                                <td>
+                                    <span class="badge ${a.ativo ? 'bg-success' : 'bg-secondary'}">
+                                        ${a.ativo ? 'Ativo' : 'Inativo'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="verAgente(${a.id})">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    // --- Modais Tenant ---
+
+    function mostrarModalTenant(tenant = null) {
+        document.getElementById('modalTenantTitulo').textContent = tenant ? 'Editar Tenant' : 'Novo Tenant';
+        document.getElementById('tenantId').value = tenant?.id || '';
+        document.getElementById('inputNome').value = tenant?.nome || '';
+        document.getElementById('inputSlug').value = tenant?.slug || '';
+        document.getElementById('inputEmail').value = tenant?.email || '';
+        document.getElementById('inputTelefone').value = tenant?.telefone || '';
+        document.getElementById('inputPlano').value = tenant?.plano || 'basico';
+        document.getElementById('inputChatwootUrl').value = tenant?.chatwoot_url || '';
+        document.getElementById('inputTelegramChatId').value = tenant?.telegram_chat_id || '';
+
+        new bootstrap.Modal(document.getElementById('modalTenant')).show();
+    }
+
+    function editarTenant() {
+        if (tenantAtual) {
+            mostrarModalTenant(tenantAtual);
+        }
+    }
+
+    async function salvarTenant() {
+        const id = document.getElementById('tenantId').value;
+        const dados = {
+            nome: document.getElementById('inputNome').value,
+            slug: document.getElementById('inputSlug').value,
+            email: document.getElementById('inputEmail').value || null,
+            telefone: document.getElementById('inputTelefone').value || null,
+            plano: document.getElementById('inputPlano').value,
+            chatwoot_url: document.getElementById('inputChatwootUrl').value || null,
+            telegram_chat_id: document.getElementById('inputTelegramChatId').value || null
+        };
+
+        try {
+            if (id) {
+                await apiCall(`/api/admin/tenants/${id}`, 'PUT', dados);
+                showToast('Tenant atualizado com sucesso!');
+            } else {
+                await apiCall('/api/admin/tenants', 'POST', dados);
+                showToast('Tenant criado com sucesso!');
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('modalTenant')).hide();
+            await carregarTenants();
+
+            if (id && tenantAtual?.id == id) {
+                await selecionarTenant(id);
+            }
+        } catch (error) {
+            showToast('Erro ao salvar tenant: ' + error.message, 'danger');
+        }
+    }
+
+    async function deletarTenant() {
+        if (!tenantAtual) return;
+
+        if (!confirm(`Tem certeza que deseja deletar o tenant "${tenantAtual.nome}"? Todos os agentes e dados serao removidos.`)) {
+            return;
+        }
+
+        try {
+            await apiCall(`/api/admin/tenants/${tenantAtual.id}`, 'DELETE');
+            showToast('Tenant deletado com sucesso!');
+            tenantAtual = null;
+            document.getElementById('cardDetalhes').style.display = 'none';
+            document.getElementById('cardVazio').style.display = 'block';
+            await carregarTenants();
+        } catch (error) {
+            showToast('Erro ao deletar tenant: ' + error.message, 'danger');
+        }
+    }
+
+    // --- Modais Agente ---
+
+    function mostrarModalAgente(agente = null) {
+        if (!tenantAtual && !agente) {
+            showToast('Selecione um tenant primeiro', 'warning');
+            return;
+        }
+
+        document.getElementById('modalAgenteTitulo').textContent = agente ? 'Editar Agente' : 'Novo Agente';
+        document.getElementById('agenteId').value = agente?.id || '';
+        document.getElementById('agenteTenantId').value = agente?.tenant_id || tenantAtual?.id || '';
+        document.getElementById('inputAgenteNome').value = agente?.nome || '';
+        document.getElementById('inputAgenteDescricao').value = agente?.descricao || '';
+        document.getElementById('inputAgenteModelo').value = agente?.modelo_llm || 'google/gemini-2.0-flash-001';
+        document.getElementById('inputAgenteChatwootAccount').value = agente?.chatwoot_account_id || '';
+        document.getElementById('inputAgenteChatwootInbox').value = agente?.chatwoot_inbox_id || '';
+        document.getElementById('inputAgenteTemperatura').value = agente?.temperatura || 0.7;
+        document.getElementById('inputAgenteMaxTokens').value = agente?.max_tokens || 4096;
+        document.getElementById('inputAgentePrompt').value = agente?.system_prompt || '';
+
+        new bootstrap.Modal(document.getElementById('modalAgente')).show();
+    }
+
+    async function salvarAgente() {
+        const id = document.getElementById('agenteId').value;
+        const dados = {
+            tenant_id: parseInt(document.getElementById('agenteTenantId').value),
+            nome: document.getElementById('inputAgenteNome').value,
+            descricao: document.getElementById('inputAgenteDescricao').value || null,
+            modelo_llm: document.getElementById('inputAgenteModelo').value,
+            chatwoot_account_id: document.getElementById('inputAgenteChatwootAccount').value || null,
+            chatwoot_inbox_id: document.getElementById('inputAgenteChatwootInbox').value || null,
+            temperatura: parseFloat(document.getElementById('inputAgenteTemperatura').value),
+            max_tokens: parseInt(document.getElementById('inputAgenteMaxTokens').value),
+            system_prompt: document.getElementById('inputAgentePrompt').value || null
+        };
+
+        try {
+            if (id) {
+                await apiCall(`/api/admin/agentes/${id}`, 'PUT', dados);
+                showToast('Agente atualizado com sucesso!');
+            } else {
+                await apiCall('/api/admin/agentes', 'POST', dados);
+                showToast('Agente criado com sucesso!');
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('modalAgente')).hide();
+
+            if (tenantAtual) {
+                await selecionarTenant(tenantAtual.id);
+            }
+        } catch (error) {
+            showToast('Erro ao salvar agente: ' + error.message, 'danger');
+        }
+    }
+
+    async function verAgente(agenteId) {
+        try {
+            const data = await apiCall(`/api/admin/agentes/${agenteId}`);
+            agenteAtual = data.agente;
+
+            document.getElementById('detalhesAgenteNome').textContent = agenteAtual.nome;
+            document.getElementById('detalhesAgenteModelo').textContent = agenteAtual.modelo_llm;
+            document.getElementById('detalhesAgenteTemp').textContent = agenteAtual.temperatura;
+            document.getElementById('detalhesAgenteTokens').textContent = agenteAtual.max_tokens;
+            document.getElementById('detalhesAgenteCwAccount').textContent = agenteAtual.chatwoot_account_id || '-';
+            document.getElementById('detalhesAgenteCwInbox').textContent = agenteAtual.chatwoot_inbox_id || '-';
+
+            renderizarSubAgentes(agenteAtual.sub_agentes || []);
+
+            new bootstrap.Modal(document.getElementById('modalDetalhesAgente')).show();
+        } catch (error) {
+            showToast('Erro ao carregar agente: ' + error.message, 'danger');
+        }
+    }
+
+    function editarAgente() {
+        if (agenteAtual) {
+            bootstrap.Modal.getInstance(document.getElementById('modalDetalhesAgente')).hide();
+            mostrarModalAgente(agenteAtual);
+        }
+    }
+
+    async function deletarAgente() {
+        if (!agenteAtual) return;
+
+        if (!confirm(`Tem certeza que deseja deletar o agente "${agenteAtual.nome}"?`)) {
+            return;
+        }
+
+        try {
+            await apiCall(`/api/admin/agentes/${agenteAtual.id}`, 'DELETE');
+            showToast('Agente deletado com sucesso!');
+            bootstrap.Modal.getInstance(document.getElementById('modalDetalhesAgente')).hide();
+            agenteAtual = null;
+
+            if (tenantAtual) {
+                await selecionarTenant(tenantAtual.id);
+            }
+        } catch (error) {
+            showToast('Erro ao deletar agente: ' + error.message, 'danger');
+        }
+    }
+
+    // --- Sub-agentes ---
+
+    function renderizarSubAgentes(subAgentes) {
+        const container = document.getElementById('listaSubAgentes');
+
+        if (!subAgentes || subAgentes.length === 0) {
+            container.innerHTML = '<p class="text-muted">Nenhum sub-agente cadastrado</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="list-group">
+                ${subAgentes.map(sa => `
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${escapeHtml(sa.nome)}</strong>
+                            <span class="badge bg-info ms-2">${escapeHtml(sa.tipo)}</span>
+                            <br><small class="text-muted">${escapeHtml(sa.descricao || '')}</small>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deletarSubAgente(${sa.id})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function mostrarModalSubAgente() {
+        if (!agenteAtual) {
+            showToast('Erro ao identificar agente', 'danger');
+            return;
+        }
+
+        document.getElementById('modalSubAgenteTitulo').textContent = 'Novo Sub-agente';
+        document.getElementById('subAgenteId').value = '';
+        document.getElementById('subAgenteAgenteId').value = agenteAtual.id;
+        document.getElementById('inputSubAgenteNome').value = '';
+        document.getElementById('inputSubAgenteTipo').value = 'agendamento';
+        document.getElementById('inputSubAgenteDescricao').value = '';
+        document.getElementById('inputSubAgenteCondicao').value = '';
+        document.getElementById('inputSubAgentePrioridade').value = '0';
+        document.getElementById('inputSubAgentePrompt').value = '';
+
+        new bootstrap.Modal(document.getElementById('modalSubAgente')).show();
+    }
+
+    async function salvarSubAgente() {
+        const id = document.getElementById('subAgenteId').value;
+        const dados = {
+            agente_id: parseInt(document.getElementById('subAgenteAgenteId').value),
+            nome: document.getElementById('inputSubAgenteNome').value,
+            tipo: document.getElementById('inputSubAgenteTipo').value,
+            descricao: document.getElementById('inputSubAgenteDescricao').value || null,
+            condicao_ativacao: document.getElementById('inputSubAgenteCondicao').value || null,
+            prioridade: parseInt(document.getElementById('inputSubAgentePrioridade').value),
+            system_prompt: document.getElementById('inputSubAgentePrompt').value || null
+        };
+
+        try {
+            if (id) {
+                await apiCall(`/api/admin/sub-agentes/${id}`, 'PUT', dados);
+                showToast('Sub-agente atualizado!');
+            } else {
+                await apiCall('/api/admin/sub-agentes', 'POST', dados);
+                showToast('Sub-agente criado!');
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('modalSubAgente')).hide();
+            await verAgente(agenteAtual.id);
+        } catch (error) {
+            showToast('Erro ao salvar sub-agente: ' + error.message, 'danger');
+        }
+    }
+
+    async function deletarSubAgente(subAgenteId) {
+        if (!confirm('Tem certeza que deseja deletar este sub-agente?')) {
+            return;
+        }
+
+        try {
+            await apiCall(`/api/admin/sub-agentes/${subAgenteId}`, 'DELETE');
+            showToast('Sub-agente deletado!');
+            await verAgente(agenteAtual.id);
+        } catch (error) {
+            showToast('Erro ao deletar sub-agente: ' + error.message, 'danger');
+        }
+    }
+
+    // --- Helpers ---
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}
