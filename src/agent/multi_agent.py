@@ -14,7 +14,7 @@ from langgraph.graph import StateGraph, END
 from src.config import Config
 from src.agent.tools import ALL_TOOLS, set_context
 from src.services.database import get_db_service
-from src.services.tenant import Agente, SubAgente, get_tenant_service
+from src.services.tenant import Agente, SubAgente, AgenteVinculado, get_tenant_service
 
 
 class MultiAgentState(TypedDict):
@@ -35,6 +35,10 @@ class MultiAgentState(TypedDict):
     current_intent: str
     current_sub_agent: Optional[str]
     sub_agent_response: Optional[str]
+    # Agentes vinculados (novo)
+    current_linked_agent: Optional[Dict[str, Any]]  # Agente vinculado ativo
+    transfer_mode: Optional[str]  # 'interno' ou 'externo'
+    transfer_context: Optional[Dict[str, Any]]  # Contexto para transferência
     # Dados do paciente extraídos
     patient_data: Dict[str, Any]
 
@@ -69,26 +73,40 @@ def build_multi_agent_graph(agente: Agente) -> StateGraph:
 
     async def router_node(state: MultiAgentState) -> dict:
         """
-        Nó roteador: analisa a mensagem e decide qual sub-agente usar
+        Nó roteador: analisa a mensagem e decide qual sub-agente ou agente vinculado usar
 
-        Se não houver sub-agentes configurados, vai direto para o agente principal.
+        Prioridade:
+        1. Sub-agentes (pertence ao mesmo agente)
+        2. Agentes vinculados (agentes independentes conectados)
+        3. Agente principal
         """
         messages = state["messages"]
         sub_agentes = agente.sub_agentes
+        agentes_vinculados = agente.agentes_vinculados
 
-        # Se não há sub-agentes, vai direto para o agente principal
-        if not sub_agentes:
+        # Se não há sub-agentes nem agentes vinculados, vai direto para o agente principal
+        if not sub_agentes and not agentes_vinculados:
             return {
                 "current_intent": "geral",
-                "current_sub_agent": None
+                "current_sub_agent": None,
+                "current_linked_agent": None,
+                "transfer_mode": None
             }
 
         # Monta prompt para classificação de intent
         intent_options = []
+
+        # Adiciona sub-agentes
         for sa in sub_agentes:
             intent_options.append(f"- {sa.tipo}: {sa.descricao or sa.nome}")
             if sa.condicao_ativacao:
                 intent_options.append(f"  Palavras-chave: {sa.condicao_ativacao}")
+
+        # Adiciona agentes vinculados
+        for av in agentes_vinculados:
+            intent_options.append(f"- {av.agente_tipo}: {av.agente_nome}")
+            if av.condicao_ativacao:
+                intent_options.append(f"  Palavras-chave: {av.condicao_ativacao}")
 
         classification_prompt = f"""Analise a mensagem do usuário e classifique a intenção.
 
@@ -96,7 +114,7 @@ Opções de intenção disponíveis:
 {chr(10).join(intent_options)}
 - geral: Qualquer outra coisa não específica
 
-Responda APENAS com o tipo da intenção (ex: agendamento, informacao, geral).
+Responda APENAS com o tipo da intenção (ex: agendamento, financeiro, suporte, geral).
 Não inclua explicações, apenas a palavra do tipo.
 
 Mensagem do usuário: {messages[-1].content if messages else ''}"""
@@ -106,18 +124,39 @@ Mensagem do usuário: {messages[-1].content if messages else ''}"""
 
         intent = response.content.strip().lower()
 
-        # Encontra o sub-agente correspondente
+        # Primeiro verifica sub-agentes (prioridade)
         sub_agent = None
         for sa in sub_agentes:
             if sa.tipo.lower() == intent:
                 sub_agent = sa.tipo
                 break
 
-        print(f"🎯 Router: Intent={intent}, Sub-agent={sub_agent}")
+        # Se não encontrou sub-agente, verifica agentes vinculados
+        linked_agent = None
+        transfer_mode = None
+        if not sub_agent:
+            for av in agentes_vinculados:
+                if av.agente_tipo.lower() == intent:
+                    linked_agent = {
+                        "id": av.agente_id,
+                        "nome": av.agente_nome,
+                        "tipo": av.agente_tipo,
+                        "system_prompt": av.system_prompt,
+                        "ferramentas": av.ferramentas,
+                        "manter_contexto": av.manter_contexto,
+                        "chatwoot_account_id": av.chatwoot_account_id,
+                        "chatwoot_inbox_id": av.chatwoot_inbox_id
+                    }
+                    transfer_mode = av.modo_transferencia
+                    break
+
+        print(f"🎯 Router: Intent={intent}, Sub-agent={sub_agent}, Linked-agent={linked_agent}")
 
         return {
             "current_intent": intent,
-            "current_sub_agent": sub_agent
+            "current_sub_agent": sub_agent,
+            "current_linked_agent": linked_agent,
+            "transfer_mode": transfer_mode
         }
 
     async def main_agent_node(state: MultiAgentState) -> dict:
@@ -260,6 +299,94 @@ Mensagem do usuário: {messages[-1].content if messages else ''}"""
             "sub_agent_response": response.content
         }
 
+    async def linked_agent_node(state: MultiAgentState) -> dict:
+        """
+        Nó para agente vinculado
+
+        Processa a mensagem usando o agente vinculado.
+        Se modo_transferencia = 'externo', registra a transferência para acompanhamento.
+        """
+        from langgraph.prebuilt import ToolNode
+
+        messages = state["messages"]
+        linked_agent = state.get("current_linked_agent")
+        phone = state["phone"]
+        conversation_id = state["conversation_id"]
+        transfer_mode = state.get("transfer_mode", "interno")
+
+        if not linked_agent:
+            # Fallback para agente principal
+            return await main_agent_node(state)
+
+        # System prompt do agente vinculado
+        if linked_agent.get("system_prompt"):
+            system_prompt = linked_agent["system_prompt"].format(
+                phone=phone,
+                conversation_id=conversation_id,
+                data_atual=datetime.now().strftime("%A, %d de %B de %Y, %H:%M"),
+                **agente.info_empresa
+            )
+        else:
+            # Usa prompt do agente principal
+            from src.agent.prompts import get_system_prompt
+            system_prompt = get_system_prompt(phone, conversation_id)
+
+        # Filtra ferramentas se especificadas
+        tools_to_use = ALL_TOOLS
+        if linked_agent.get("ferramentas"):
+            tools_to_use = [t for t in ALL_TOOLS if t.name in linked_agent["ferramentas"]]
+            if not tools_to_use:
+                tools_to_use = ALL_TOOLS  # Fallback
+
+        # Se manter_contexto = False, não passa histórico
+        if linked_agent.get("manter_contexto", True):
+            full_messages = [SystemMessage(content=system_prompt)] + list(messages)
+        else:
+            # Só passa a última mensagem
+            full_messages = [SystemMessage(content=system_prompt), messages[-1]]
+
+        # LLM com ferramentas do agente vinculado
+        llm = get_llm()
+        llm_with_tools = llm.bind_tools(tools_to_use)
+
+        print(f"🔗 Linked-agent '{linked_agent['nome']}' processando (mode: {transfer_mode})...")
+        response = await llm_with_tools.ainvoke(full_messages)
+
+        # Executa ferramentas se necessário
+        if hasattr(response, "tool_calls") and response.tool_calls:
+            print(f"🔧 Ferramentas do linked-agent: {[tc['name'] for tc in response.tool_calls]}")
+
+            tool_node = ToolNode(tools_to_use)
+            tool_result = await tool_node.ainvoke({"messages": [response]})
+
+            new_messages = [response] + tool_result.get("messages", [])
+            response = await llm_with_tools.ainvoke(full_messages + new_messages)
+
+            # Loop para múltiplas chamadas
+            iterations = 0
+            while hasattr(response, "tool_calls") and response.tool_calls and iterations < 5:
+                iterations += 1
+                tool_result = await tool_node.ainvoke({"messages": [response]})
+                new_messages = new_messages + [response] + tool_result.get("messages", [])
+                response = await llm_with_tools.ainvoke(full_messages + new_messages)
+
+        # Se modo = 'externo' e o agente vinculado tem WhatsApp próprio,
+        # podemos registrar a transferência para acompanhamento
+        if transfer_mode == "externo" and linked_agent.get("chatwoot_account_id"):
+            print(f"📤 Transferência externa para agente '{linked_agent['nome']}' - WhatsApp próprio disponível")
+            # A transferência externa seria tratada pelo sistema de chatwoot
+            # Aqui apenas retornamos a resposta do agente vinculado
+
+        return {
+            "messages": [response],
+            "sub_agent_response": response.content,
+            "transfer_context": {
+                "linked_agent_id": linked_agent.get("id"),
+                "linked_agent_nome": linked_agent.get("nome"),
+                "transfer_mode": transfer_mode
+            }
+        }
+
     # =============================================
     # DECISÕES DE ROTEAMENTO
     # =============================================
@@ -267,12 +394,17 @@ Mensagem do usuário: {messages[-1].content if messages else ''}"""
     def route_after_router(state: MultiAgentState) -> str:
         """Decide para qual nó ir após o router"""
         sub_agent = state.get("current_sub_agent")
+        linked_agent = state.get("current_linked_agent")
 
+        # Primeiro verifica sub-agentes
         if sub_agent and agente.sub_agentes:
-            # Verifica se o sub-agente existe
             for sa in agente.sub_agentes:
                 if sa.tipo == sub_agent:
                     return "sub_agent"
+
+        # Depois verifica agentes vinculados
+        if linked_agent:
+            return "linked_agent"
 
         return "main_agent"
 
@@ -286,6 +418,7 @@ Mensagem do usuário: {messages[-1].content if messages else ''}"""
     workflow.add_node("router", router_node)
     workflow.add_node("main_agent", main_agent_node)
     workflow.add_node("sub_agent", sub_agent_node)
+    workflow.add_node("linked_agent", linked_agent_node)
 
     # Define entrada
     workflow.set_entry_point("router")
@@ -296,13 +429,15 @@ Mensagem do usuário: {messages[-1].content if messages else ''}"""
         route_after_router,
         {
             "main_agent": "main_agent",
-            "sub_agent": "sub_agent"
+            "sub_agent": "sub_agent",
+            "linked_agent": "linked_agent"
         }
     )
 
-    # Ambos os agentes terminam
+    # Todos os agentes terminam
     workflow.add_edge("main_agent", END)
     workflow.add_edge("sub_agent", END)
+    workflow.add_edge("linked_agent", END)
 
     return workflow.compile()
 
@@ -403,6 +538,9 @@ class MultiAgentRunner:
             "current_intent": "",
             "current_sub_agent": None,
             "sub_agent_response": None,
+            "current_linked_agent": None,
+            "transfer_mode": None,
+            "transfer_context": None,
             "patient_data": {}
         }
 

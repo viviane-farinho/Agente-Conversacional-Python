@@ -308,32 +308,38 @@ class DatabaseService:
                 """, telefone, etapa or "novo_contato", nome_paciente, conversation_id, ultima_mensagem, agendamento_id, observacoes, tipo_atendimento or "agente")
                 return row["id"]
 
-    async def pipeline_listar_conversas(self, etapa: str = None) -> list:
-        """Lista todas as conversas do pipeline"""
+    async def pipeline_listar_conversas(self, etapa: str = None, tenant_id: int = None) -> list:
+        """Lista todas as conversas do pipeline, opcionalmente filtradas por tenant"""
         async with self.pool.acquire() as conn:
+            base_query = """
+                SELECT pc.*,
+                       a.paciente_nome as agendamento_paciente,
+                       a.data_hora as agendamento_data,
+                       p.nome as profissional_nome
+                FROM pipeline_conversas pc
+                LEFT JOIN agendamentos a ON pc.agendamento_id = a.id
+                LEFT JOIN profissionais p ON a.profissional_id = p.id
+            """
+            conditions = []
+            params = []
+            param_num = 1
+
+            if tenant_id is not None:
+                conditions.append(f"pc.tenant_id = ${param_num}")
+                params.append(tenant_id)
+                param_num += 1
+
             if etapa:
-                rows = await conn.fetch("""
-                    SELECT pc.*,
-                           a.paciente_nome as agendamento_paciente,
-                           a.data_hora as agendamento_data,
-                           p.nome as profissional_nome
-                    FROM pipeline_conversas pc
-                    LEFT JOIN agendamentos a ON pc.agendamento_id = a.id
-                    LEFT JOIN profissionais p ON a.profissional_id = p.id
-                    WHERE pc.etapa = $1
-                    ORDER BY pc.ultima_atualizacao DESC
-                """, etapa)
-            else:
-                rows = await conn.fetch("""
-                    SELECT pc.*,
-                           a.paciente_nome as agendamento_paciente,
-                           a.data_hora as agendamento_data,
-                           p.nome as profissional_nome
-                    FROM pipeline_conversas pc
-                    LEFT JOIN agendamentos a ON pc.agendamento_id = a.id
-                    LEFT JOIN profissionais p ON a.profissional_id = p.id
-                    ORDER BY pc.ultima_atualizacao DESC
-                """)
+                conditions.append(f"pc.etapa = ${param_num}")
+                params.append(etapa)
+                param_num += 1
+
+            if conditions:
+                base_query += " WHERE " + " AND ".join(conditions)
+
+            base_query += " ORDER BY pc.ultima_atualizacao DESC"
+
+            rows = await conn.fetch(base_query, *params)
             return [dict(row) for row in rows]
 
     async def pipeline_mover_etapa(self, conversa_id: int, nova_etapa: str) -> bool:
@@ -377,14 +383,22 @@ class DatabaseService:
             """, conversa_id)
             return True
 
-    async def pipeline_stats(self) -> dict:
-        """Retorna estatisticas do pipeline"""
+    async def pipeline_stats(self, tenant_id: int = None) -> dict:
+        """Retorna estatisticas do pipeline, opcionalmente filtradas por tenant"""
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch("""
-                SELECT etapa, COUNT(*) as total
-                FROM pipeline_conversas
-                GROUP BY etapa
-            """)
+            if tenant_id is not None:
+                rows = await conn.fetch("""
+                    SELECT etapa, COUNT(*) as total
+                    FROM pipeline_conversas
+                    WHERE tenant_id = $1
+                    GROUP BY etapa
+                """, tenant_id)
+            else:
+                rows = await conn.fetch("""
+                    SELECT etapa, COUNT(*) as total
+                    FROM pipeline_conversas
+                    GROUP BY etapa
+                """)
             stats = {row["etapa"]: row["total"] for row in rows}
             return stats
 

@@ -441,6 +441,9 @@
     let profissionais = [];
     let agendamentoAtualId = null;
 
+    // Slug do tenant atual para usar nas chamadas de API
+    const TENANT_SLUG = "{{ tenant.slug }}";
+
     const etapas = ['novo_contato', 'em_atendimento', 'aguardando_resposta', 'agendado', 'finalizado'];
     const etapaNomes = {
         'novo_contato': 'Novo Contato',
@@ -458,7 +461,7 @@
 
     async function carregarProfissionais() {
         try {
-            const data = await apiCall('/api/admin/profissionais');
+            const data = await apiCall(`/api/tenant/${TENANT_SLUG}/profissionais`);
             profissionais = data.profissionais || [];
             const options = profissionais.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
             document.getElementById('agProfissional').innerHTML = '<option value="">Selecione...</option>' + options;
@@ -469,7 +472,7 @@
 
     async function carregarConversas() {
         try {
-            const data = await apiCall('/api/admin/pipeline');
+            const data = await apiCall(`/api/tenant/${TENANT_SLUG}/pipeline`);
             conversas = data.conversas || [];
             renderizarPipeline();
             atualizarStats(data.stats || {});
@@ -787,7 +790,7 @@
         }
 
         try {
-            const result = await apiCall(`/api/admin/horarios-disponiveis?profissional_id=${profId}&data=${data}`);
+            const result = await apiCall(`/api/tenant/${TENANT_SLUG}/horarios-disponiveis?profissional_id=${profId}&data=${data}`);
             const horarios = result.horarios || [];
 
             if (horarios.length === 0) {

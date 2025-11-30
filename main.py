@@ -209,6 +209,34 @@ class SubAgenteUpdate(BaseModel):
     ativo: Optional[bool] = None
 
 
+class VinculacaoAgenteBase(BaseModel):
+    """Modelo para vincular um agente a outro"""
+    agente_principal_id: int
+    agente_vinculado_id: int
+    condicao_ativacao: Optional[str] = None
+    prioridade: int = 0
+    modo_transferencia: str = "interno"  # 'interno' ou 'externo'
+    manter_contexto: bool = True
+
+
+class VinculacaoAgenteUpdate(BaseModel):
+    """Modelo para atualizar uma vinculação"""
+    condicao_ativacao: Optional[str] = None
+    prioridade: Optional[int] = None
+    modo_transferencia: Optional[str] = None
+    manter_contexto: Optional[bool] = None
+    ativo: Optional[bool] = None
+
+
+class AgenteVinculavelUpdate(BaseModel):
+    """Modelo para configurar um agente como vinculável"""
+    pode_ser_vinculado: bool
+    tipo: Optional[str] = None
+    condicao_ativacao: Optional[str] = None
+    ferramentas: Optional[list] = None
+    prioridade: int = 0
+
+
 # --- Contexto do App ---
 
 @asynccontextmanager
@@ -1371,6 +1399,12 @@ async def api_buscar_agente(agente_id: int):
                 "max_tokens": agente.max_tokens,
                 "info_empresa": agente.info_empresa,
                 "ativo": agente.ativo,
+                # Novos campos para agentes vinculados
+                "tipo": agente.tipo,
+                "pode_ser_vinculado": agente.pode_ser_vinculado,
+                "condicao_ativacao": agente.condicao_ativacao,
+                "ferramentas": agente.ferramentas,
+                "prioridade": agente.prioridade,
                 "sub_agentes": [
                     {
                         "id": sa.id,
@@ -1380,6 +1414,18 @@ async def api_buscar_agente(agente_id: int):
                         "prioridade": sa.prioridade,
                         "ativo": sa.ativo
                     } for sa in agente.sub_agentes
+                ],
+                "agentes_vinculados": [
+                    {
+                        "id": av.id,
+                        "agente_id": av.agente_id,
+                        "agente_nome": av.agente_nome,
+                        "agente_tipo": av.agente_tipo,
+                        "condicao_ativacao": av.condicao_ativacao,
+                        "prioridade": av.prioridade,
+                        "modo_transferencia": av.modo_transferencia,
+                        "manter_contexto": av.manter_contexto
+                    } for av in agente.agentes_vinculados
                 ]
             }
         }
@@ -1537,6 +1583,128 @@ async def api_deletar_sub_agente(sub_agente_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# --- Endpoints Agentes Vinculados ---
+
+@app.get("/api/admin/agentes/{agente_id}/vinculados")
+async def api_listar_agentes_vinculados(agente_id: int, apenas_ativos: bool = True):
+    """Lista agentes vinculados a um agente principal"""
+    try:
+        tenant_svc = await get_tenant_service()
+        vinculados = await tenant_svc.listar_agentes_vinculados(agente_id, apenas_ativos=apenas_ativos)
+        return {"agentes_vinculados": [
+            {
+                "id": av.id,
+                "agente_id": av.agente_id,
+                "agente_nome": av.agente_nome,
+                "agente_tipo": av.agente_tipo,
+                "condicao_ativacao": av.condicao_ativacao,
+                "prioridade": av.prioridade,
+                "modo_transferencia": av.modo_transferencia,
+                "manter_contexto": av.manter_contexto,
+                "chatwoot_account_id": av.chatwoot_account_id
+            } for av in vinculados
+        ]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/agentes/vinculaveis")
+async def api_listar_agentes_vinculaveis(tenant_id: int, excluir_agente_id: int = None):
+    """Lista agentes que podem ser vinculados (pode_ser_vinculado = true)"""
+    try:
+        tenant_svc = await get_tenant_service()
+        vinculaveis = await tenant_svc.listar_agentes_vinculaveis(tenant_id, excluir_agente_id)
+        return {"agentes_vinculaveis": [
+            {
+                "id": a.id,
+                "nome": a.nome,
+                "tipo": a.tipo,
+                "condicao_ativacao": a.condicao_ativacao,
+                "prioridade": a.prioridade,
+                "chatwoot_account_id": a.chatwoot_account_id
+            } for a in vinculaveis
+        ]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/agentes/vincular")
+async def api_vincular_agente(vinculacao: VinculacaoAgenteBase):
+    """Cria uma vinculação entre dois agentes"""
+    try:
+        tenant_svc = await get_tenant_service()
+        result = await tenant_svc.vincular_agente(
+            agente_principal_id=vinculacao.agente_principal_id,
+            agente_vinculado_id=vinculacao.agente_vinculado_id,
+            condicao_ativacao=vinculacao.condicao_ativacao,
+            prioridade=vinculacao.prioridade,
+            modo_transferencia=vinculacao.modo_transferencia,
+            manter_contexto=vinculacao.manter_contexto
+        )
+        return {"id": result["id"], "message": "Agentes vinculados com sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/admin/agentes/vinculacao/{vinculacao_id}")
+async def api_atualizar_vinculacao(vinculacao_id: int, vinculacao: VinculacaoAgenteUpdate):
+    """Atualiza uma vinculação"""
+    try:
+        tenant_svc = await get_tenant_service()
+        result = await tenant_svc.atualizar_vinculacao(
+            vinculacao_id=vinculacao_id,
+            condicao_ativacao=vinculacao.condicao_ativacao,
+            prioridade=vinculacao.prioridade,
+            modo_transferencia=vinculacao.modo_transferencia,
+            manter_contexto=vinculacao.manter_contexto,
+            ativo=vinculacao.ativo
+        )
+        if not result:
+            raise HTTPException(status_code=404, detail="Vinculacao nao encontrada")
+        return {"message": "Vinculacao atualizada"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/agentes/{agente_principal_id}/desvincular/{agente_vinculado_id}")
+async def api_desvincular_agente(agente_principal_id: int, agente_vinculado_id: int):
+    """Remove uma vinculação entre dois agentes"""
+    try:
+        tenant_svc = await get_tenant_service()
+        success = await tenant_svc.desvincular_agente(agente_principal_id, agente_vinculado_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Vinculacao nao encontrada")
+        return {"message": "Agentes desvinculados"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/admin/agentes/{agente_id}/vinculavel")
+async def api_configurar_agente_vinculavel(agente_id: int, config: AgenteVinculavelUpdate):
+    """Configura um agente como vinculável (pode ser chamado por outros)"""
+    try:
+        tenant_svc = await get_tenant_service()
+        result = await tenant_svc.atualizar_agente(
+            agente_id=agente_id,
+            pode_ser_vinculado=config.pode_ser_vinculado,
+            tipo=config.tipo,
+            condicao_ativacao=config.condicao_ativacao,
+            ferramentas=config.ferramentas,
+            prioridade=config.prioridade
+        )
+        if not result:
+            raise HTTPException(status_code=404, detail="Agente nao encontrado")
+        return {"message": "Agente configurado como vinculavel"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # --- Endpoints Admin Multi-tenant (HTML) ---
 
 @app.get("/admin/tenants", response_class=HTMLResponse)
@@ -1633,6 +1801,95 @@ async def tenant_configuracoes(request: Request, slug: str):
         "tenant": tenant,
         "active_page": "configuracoes"
     })
+
+
+# --- API Tenant (dados filtrados por tenant) ---
+
+@app.get("/api/tenant/{slug}/pipeline")
+async def api_tenant_pipeline(slug: str):
+    """Lista conversas do pipeline filtradas por tenant"""
+    try:
+        tenant = await get_tenant_or_404(slug)
+        db = await get_db_service()
+        conversas = await db.pipeline_listar_conversas(tenant_id=tenant.id)
+        stats = await db.pipeline_stats(tenant_id=tenant.id)
+
+        for c in conversas:
+            if c.get('ultima_atualizacao'):
+                c['ultima_atualizacao'] = c['ultima_atualizacao'].isoformat()
+            if c.get('created_at'):
+                c['created_at'] = c['created_at'].isoformat()
+            if c.get('agendamento_data'):
+                c['agendamento_data'] = c['agendamento_data'].isoformat()
+
+        return {"conversas": conversas, "stats": stats}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/tenant/{slug}/profissionais")
+async def api_tenant_profissionais(slug: str):
+    """Lista profissionais filtrados por tenant"""
+    try:
+        tenant = await get_tenant_or_404(slug)
+        db = await get_db_service()
+        agenda = await get_agenda_service(db.pool)
+        profissionais = await agenda.listar_profissionais(tenant_id=tenant.id)
+        return {"profissionais": profissionais}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/tenant/{slug}/agendamentos")
+async def api_tenant_agendamentos(
+    slug: str,
+    data_inicio: str = None,
+    data_fim: str = None,
+    profissional_id: int = None,
+    status: str = None
+):
+    """Lista agendamentos filtrados por tenant"""
+    try:
+        tenant = await get_tenant_or_404(slug)
+        db = await get_db_service()
+        agenda = await get_agenda_service(db.pool)
+        agendamentos = await agenda.listar_agendamentos(
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+            profissional_id=profissional_id,
+            status=status,
+            tenant_id=tenant.id
+        )
+        return {"agendamentos": agendamentos}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/tenant/{slug}/horarios-disponiveis")
+async def api_tenant_horarios_disponiveis(slug: str, profissional_id: int, data: str):
+    """Lista horarios disponiveis para o tenant"""
+    try:
+        tenant = await get_tenant_or_404(slug)
+        db = await get_db_service()
+        agenda = await get_agenda_service(db.pool)
+        from datetime import date as date_type
+        data_parsed = date_type.fromisoformat(data)
+        horarios = await agenda.buscar_horarios_disponiveis(
+            profissional_id=profissional_id,
+            data=data_parsed,
+            tenant_id=tenant.id
+        )
+        return {"horarios": horarios}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # --- Execucao ---

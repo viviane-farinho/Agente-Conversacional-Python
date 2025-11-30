@@ -25,6 +25,23 @@ class SubAgente:
 
 
 @dataclass
+class AgenteVinculado:
+    """Representa uma vinculacao entre agentes (agente que pode ser chamado por outro)"""
+    id: int
+    agente_id: int  # ID do agente vinculado
+    agente_nome: str
+    agente_tipo: str
+    system_prompt: Optional[str] = None
+    ferramentas: List[str] = field(default_factory=list)
+    condicao_ativacao: Optional[str] = None
+    prioridade: int = 0
+    modo_transferencia: str = "interno"  # 'interno' ou 'externo'
+    manter_contexto: bool = True
+    chatwoot_account_id: Optional[str] = None  # WhatsApp proprio (se tiver)
+    chatwoot_inbox_id: Optional[str] = None
+
+
+@dataclass
 class Agente:
     """Representa um agente de atendimento"""
     id: int
@@ -39,7 +56,15 @@ class Agente:
     max_tokens: int = 4096
     info_empresa: Dict[str, Any] = field(default_factory=dict)
     ativo: bool = True
+    # Novos campos para agentes vinculados
+    tipo: str = "principal"  # principal, financeiro, suporte, agendamento, etc
+    pode_ser_vinculado: bool = False  # Se pode ser chamado por outros agentes
+    condicao_ativacao: Optional[str] = None  # Palavras-chave que ativam este agente
+    ferramentas: List[str] = field(default_factory=list)  # Ferramentas permitidas
+    prioridade: int = 0
+    # Relacionamentos
     sub_agentes: List[SubAgente] = field(default_factory=list)
+    agentes_vinculados: List[AgenteVinculado] = field(default_factory=list)
 
 
 @dataclass
@@ -73,18 +98,25 @@ class TenantService:
         db = await get_db_service()
 
         migrations_dir = os.path.join(os.path.dirname(__file__), "..", "..", "migrations")
-        migration_file = os.path.join(migrations_dir, "001_multi_tenant.sql")
 
-        if os.path.exists(migration_file):
-            with open(migration_file, "r") as f:
-                sql = f.read()
+        # Lista de arquivos de migração em ordem
+        migration_files = [
+            "001_multi_tenant.sql",
+            "002_agentes_vinculados.sql"
+        ]
 
-            async with db.pool.acquire() as conn:
-                # Executa a migração
-                await conn.execute(sql)
-            print("[TenantService] Migrações executadas com sucesso")
-        else:
-            print(f"[TenantService] Arquivo de migração não encontrado: {migration_file}")
+        async with db.pool.acquire() as conn:
+            for migration_name in migration_files:
+                migration_file = os.path.join(migrations_dir, migration_name)
+                if os.path.exists(migration_file):
+                    with open(migration_file, "r") as f:
+                        sql = f.read()
+                    await conn.execute(sql)
+                    print(f"[TenantService] Migração {migration_name} executada")
+                else:
+                    print(f"[TenantService] Arquivo de migração não encontrado: {migration_file}")
+
+        print("[TenantService] Todas as migrações executadas com sucesso")
 
     # =============================================
     # TENANT CRUD
@@ -223,6 +255,7 @@ class TenantService:
             if row:
                 agente = self._row_to_agente(row)
                 agente.sub_agentes = await self.listar_sub_agentes(agente_id)
+                agente.agentes_vinculados = await self.listar_agentes_vinculados(agente_id)
                 return agente
         return None
 
@@ -254,6 +287,7 @@ class TenantService:
             if row:
                 agente = self._row_to_agente(row)
                 agente.sub_agentes = await self.listar_sub_agentes(agente.id)
+                agente.agentes_vinculados = await self.listar_agentes_vinculados(agente.id)
                 self._agent_cache[cache_key] = agente
                 return agente
         return None
@@ -282,7 +316,7 @@ class TenantService:
             i = 1
             for key, value in kwargs.items():
                 if value is not None:
-                    if key == "info_empresa":
+                    if key in ("info_empresa", "ferramentas"):
                         value = json.dumps(value)
                     updates.append(f"{key} = ${i}")
                     params.append(value)
@@ -392,6 +426,184 @@ class TenantService:
             return result != "DELETE 0"
 
     # =============================================
+    # AGENTES VINCULADOS CRUD
+    # =============================================
+
+    async def vincular_agente(
+        self,
+        agente_principal_id: int,
+        agente_vinculado_id: int,
+        condicao_ativacao: str = None,
+        prioridade: int = 0,
+        modo_transferencia: str = "interno",
+        manter_contexto: bool = True
+    ) -> Dict:
+        """Cria uma vinculação entre dois agentes"""
+        db = await get_db_service()
+        async with db.pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                INSERT INTO agentes_vinculados
+                    (agente_principal_id, agente_vinculado_id, condicao_ativacao,
+                     prioridade, modo_transferencia, manter_contexto)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (agente_principal_id, agente_vinculado_id)
+                DO UPDATE SET
+                    condicao_ativacao = EXCLUDED.condicao_ativacao,
+                    prioridade = EXCLUDED.prioridade,
+                    modo_transferencia = EXCLUDED.modo_transferencia,
+                    manter_contexto = EXCLUDED.manter_contexto,
+                    ativo = true
+                RETURNING *
+            """, agente_principal_id, agente_vinculado_id, condicao_ativacao,
+                prioridade, modo_transferencia, manter_contexto)
+
+            self._agent_cache.clear()
+            return dict(row) if row else None
+
+    async def desvincular_agente(
+        self,
+        agente_principal_id: int,
+        agente_vinculado_id: int
+    ) -> bool:
+        """Remove uma vinculação entre dois agentes"""
+        db = await get_db_service()
+        async with db.pool.acquire() as conn:
+            result = await conn.execute("""
+                DELETE FROM agentes_vinculados
+                WHERE agente_principal_id = $1 AND agente_vinculado_id = $2
+            """, agente_principal_id, agente_vinculado_id)
+            self._agent_cache.clear()
+            return result != "DELETE 0"
+
+    async def listar_agentes_vinculados(
+        self,
+        agente_principal_id: int,
+        apenas_ativos: bool = True
+    ) -> List[AgenteVinculado]:
+        """Lista agentes vinculados a um agente principal"""
+        db = await get_db_service()
+        async with db.pool.acquire() as conn:
+            query = """
+                SELECT
+                    av.id,
+                    av.agente_vinculado_id as agente_id,
+                    a.nome as agente_nome,
+                    a.tipo as agente_tipo,
+                    a.system_prompt,
+                    a.ferramentas,
+                    COALESCE(av.condicao_ativacao, a.condicao_ativacao) as condicao_ativacao,
+                    COALESCE(av.prioridade, a.prioridade) as prioridade,
+                    av.modo_transferencia,
+                    av.manter_contexto,
+                    a.chatwoot_account_id,
+                    a.chatwoot_inbox_id
+                FROM agentes_vinculados av
+                JOIN agentes a ON av.agente_vinculado_id = a.id
+                WHERE av.agente_principal_id = $1
+            """
+            if apenas_ativos:
+                query += " AND av.ativo = true AND a.ativo = true"
+            query += " ORDER BY COALESCE(av.prioridade, a.prioridade) DESC"
+
+            rows = await conn.fetch(query, agente_principal_id)
+            return [self._row_to_agente_vinculado(row) for row in rows]
+
+    async def listar_agentes_vinculaveis(
+        self,
+        tenant_id: int,
+        excluir_agente_id: int = None
+    ) -> List[Agente]:
+        """Lista agentes que podem ser vinculados (pode_ser_vinculado = true)"""
+        db = await get_db_service()
+        async with db.pool.acquire() as conn:
+            query = """
+                SELECT * FROM agentes
+                WHERE tenant_id = $1 AND ativo = true AND pode_ser_vinculado = true
+            """
+            params = [tenant_id]
+            if excluir_agente_id:
+                query += " AND id != $2"
+                params.append(excluir_agente_id)
+            query += " ORDER BY nome"
+
+            rows = await conn.fetch(query, *params)
+            return [self._row_to_agente(row) for row in rows]
+
+    async def atualizar_vinculacao(
+        self,
+        vinculacao_id: int,
+        **kwargs
+    ) -> Optional[Dict]:
+        """Atualiza uma vinculação"""
+        db = await get_db_service()
+        async with db.pool.acquire() as conn:
+            updates = []
+            params = []
+            i = 1
+            for key, value in kwargs.items():
+                if value is not None:
+                    updates.append(f"{key} = ${i}")
+                    params.append(value)
+                    i += 1
+
+            if not updates:
+                return None
+
+            params.append(vinculacao_id)
+            query = f"UPDATE agentes_vinculados SET {', '.join(updates)} WHERE id = ${i} RETURNING *"
+            row = await conn.fetchrow(query, *params)
+
+            self._agent_cache.clear()
+            return dict(row) if row else None
+
+    async def registrar_transferencia(
+        self,
+        tenant_id: int,
+        conversation_id: str,
+        telefone: str,
+        agente_origem_id: int,
+        agente_destino_id: int,
+        motivo: str = None,
+        contexto: Dict = None,
+        modo: str = "interno"
+    ) -> Dict:
+        """Registra uma transferência entre agentes"""
+        db = await get_db_service()
+        async with db.pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                INSERT INTO transferencias_agente
+                    (tenant_id, conversation_id, telefone, agente_origem_id,
+                     agente_destino_id, motivo, contexto_transferido, modo)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                RETURNING *
+            """, tenant_id, conversation_id, telefone, agente_origem_id,
+                agente_destino_id, motivo, json.dumps(contexto or {}), modo)
+
+            return dict(row) if row else None
+
+    async def atualizar_status_transferencia(
+        self,
+        transferencia_id: int,
+        status: str
+    ) -> bool:
+        """Atualiza o status de uma transferência"""
+        db = await get_db_service()
+        async with db.pool.acquire() as conn:
+            if status == "concluido":
+                result = await conn.execute("""
+                    UPDATE transferencias_agente
+                    SET status = $1, completed_at = NOW()
+                    WHERE id = $2
+                """, status, transferencia_id)
+            else:
+                result = await conn.execute("""
+                    UPDATE transferencias_agente
+                    SET status = $1
+                    WHERE id = $2
+                """, status, transferencia_id)
+            return result != "UPDATE 0"
+
+    # =============================================
     # RAG DOCUMENTOS
     # =============================================
 
@@ -497,6 +709,11 @@ class TenantService:
         if isinstance(info_empresa, str):
             info_empresa = json.loads(info_empresa)
 
+        # Parse ferramentas (novo campo)
+        ferramentas = row.get("ferramentas") or []
+        if isinstance(ferramentas, str):
+            ferramentas = json.loads(ferramentas)
+
         return Agente(
             id=row["id"],
             tenant_id=row["tenant_id"],
@@ -509,7 +726,13 @@ class TenantService:
             temperatura=row.get("temperatura", 0.7),
             max_tokens=row.get("max_tokens", 4096),
             info_empresa=info_empresa,
-            ativo=row.get("ativo", True)
+            ativo=row.get("ativo", True),
+            # Novos campos para agentes vinculados
+            tipo=row.get("tipo", "principal"),
+            pode_ser_vinculado=row.get("pode_ser_vinculado", False),
+            condicao_ativacao=row.get("condicao_ativacao"),
+            ferramentas=ferramentas,
+            prioridade=row.get("prioridade", 0)
         )
 
     def _row_to_sub_agente(self, row) -> SubAgente:
@@ -529,6 +752,27 @@ class TenantService:
             condicao_ativacao=row.get("condicao_ativacao"),
             prioridade=row.get("prioridade", 0),
             ativo=row.get("ativo", True)
+        )
+
+    def _row_to_agente_vinculado(self, row) -> AgenteVinculado:
+        """Converte uma row do banco para AgenteVinculado"""
+        ferramentas = row.get("ferramentas") or []
+        if isinstance(ferramentas, str):
+            ferramentas = json.loads(ferramentas)
+
+        return AgenteVinculado(
+            id=row["id"],
+            agente_id=row["agente_id"],
+            agente_nome=row["agente_nome"],
+            agente_tipo=row["agente_tipo"],
+            system_prompt=row.get("system_prompt"),
+            ferramentas=ferramentas,
+            condicao_ativacao=row.get("condicao_ativacao"),
+            prioridade=row.get("prioridade", 0),
+            modo_transferencia=row.get("modo_transferencia", "interno"),
+            manter_contexto=row.get("manter_contexto", True),
+            chatwoot_account_id=row.get("chatwoot_account_id"),
+            chatwoot_inbox_id=row.get("chatwoot_inbox_id")
         )
 
 

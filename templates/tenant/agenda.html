@@ -178,6 +178,9 @@
     let calendar;
     let profissionais = [];
 
+    // Slug do tenant atual para usar nas chamadas de API
+    const TENANT_SLUG = "{{ tenant.slug }}";
+
     document.addEventListener('DOMContentLoaded', async function () {
         await loadProfissionais();
 
@@ -218,7 +221,7 @@
 
     async function loadProfissionais() {
         try {
-            const data = await apiCall('/api/admin/profissionais');
+            const data = await apiCall(`/api/tenant/${TENANT_SLUG}/profissionais`);
             profissionais = data.profissionais || [];
 
             const options = profissionais.map(p => `<option value="${p.id}">${p.nome} - ${p.especialidade || ''}</option>`).join('');
@@ -235,7 +238,7 @@
             const profId = document.getElementById('filtroProfissional').value;
             const status = document.getElementById('filtroStatus').value;
 
-            let url = `/api/admin/agendamentos?data_inicio=${info.startStr}&data_fim=${info.endStr}`;
+            let url = `/api/tenant/${TENANT_SLUG}/agendamentos?data_inicio=${info.startStr}&data_fim=${info.endStr}`;
             if (profId) url += `&profissional_id=${profId}`;
             if (status) url += `&status=${status}`;
 
@@ -309,7 +312,7 @@
         }
 
         try {
-            const result = await apiCall(`/api/admin/horarios-disponiveis?profissional_id=${profId}&data=${data}`);
+            const result = await apiCall(`/api/tenant/${TENANT_SLUG}/horarios-disponiveis?profissional_id=${profId}&data=${data}`);
             const horarios = result.horarios || [];
 
             if (horarios.length === 0) {

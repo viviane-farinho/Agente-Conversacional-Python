@@ -99,22 +99,33 @@ class AgendaService:
             """, nome, especialidade, cargo)
             return result["id"]
 
-    async def listar_profissionais(self, apenas_ativos: bool = True) -> List[dict]:
-        """Lista todos os profissionais"""
+    async def listar_profissionais(self, apenas_ativos: bool = True, tenant_id: int = None) -> List[dict]:
+        """Lista todos os profissionais, opcionalmente filtrados por tenant"""
         async with self.pool.acquire() as conn:
+            conditions = []
+            params = []
+            param_num = 1
+
             if apenas_ativos:
-                rows = await conn.fetch("""
-                    SELECT id, nome, especialidade, cargo, ativo, created_at
-                    FROM profissionais
-                    WHERE ativo = true
-                    ORDER BY nome
-                """)
+                conditions.append("ativo = true")
+
+            if tenant_id is not None:
+                conditions.append(f"tenant_id = ${param_num}")
+                params.append(tenant_id)
+                param_num += 1
+
+            query = """
+                SELECT id, nome, especialidade, cargo, ativo, created_at, tenant_id
+                FROM profissionais
+            """
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+            query += " ORDER BY nome"
+
+            if params:
+                rows = await conn.fetch(query, *params)
             else:
-                rows = await conn.fetch("""
-                    SELECT id, nome, especialidade, cargo, ativo, created_at
-                    FROM profissionais
-                    ORDER BY nome
-                """)
+                rows = await conn.fetch(query)
             return [dict(row) for row in rows]
 
     async def atualizar_profissional(
@@ -266,9 +277,10 @@ class AgendaService:
         profissional_id: int = None,
         data_inicio: datetime = None,
         data_fim: datetime = None,
-        status: str = None
+        status: str = None,
+        tenant_id: int = None
     ) -> List[dict]:
-        """Lista agendamentos com filtros"""
+        """Lista agendamentos com filtros, opcionalmente por tenant"""
         async with self.pool.acquire() as conn:
             query = """
                 SELECT a.*, p.nome as profissional_nome, p.especialidade
@@ -278,6 +290,11 @@ class AgendaService:
             """
             params = []
             param_count = 0
+
+            if tenant_id is not None:
+                param_count += 1
+                query += f" AND a.tenant_id = ${param_count}"
+                params.append(tenant_id)
 
             if profissional_id:
                 param_count += 1
@@ -374,7 +391,8 @@ class AgendaService:
         data: date,
         hora_inicio: time = time(8, 0),
         hora_fim: time = time(18, 0),
-        duracao_minutos: int = 30
+        duracao_minutos: int = 30,
+        tenant_id: int = None
     ) -> List[str]:
         """Retorna horários disponíveis para agendamento"""
         # Busca agendamentos do dia
@@ -384,7 +402,8 @@ class AgendaService:
         agendamentos = await self.listar_agendamentos(
             profissional_id=profissional_id,
             data_inicio=inicio,
-            data_fim=fim
+            data_fim=fim,
+            tenant_id=tenant_id
         )
 
         # Gera todos os slots
