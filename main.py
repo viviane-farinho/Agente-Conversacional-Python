@@ -162,11 +162,16 @@ class TenantUpdate(BaseModel):
 
 
 class AgenteBase(BaseModel):
-    tenant_id: int
+    tenant_id: Optional[int] = None  # NULL para agentes do admin
     nome: str
     descricao: Optional[str] = None
-    chatwoot_account_id: Optional[str] = None
-    chatwoot_inbox_id: Optional[str] = None
+    # Configurações do Chatwoot
+    chatwoot_url: Optional[str] = None  # URL base do Chatwoot
+    chatwoot_api_token: Optional[str] = None  # Token para enviar mensagens
+    chatwoot_account_id: Optional[str] = None  # ID da conta
+    chatwoot_inbox_id: Optional[str] = None  # ID da inbox (WhatsApp)
+    webhook_secret: Optional[str] = None  # Secret para validar webhooks
+    # Configurações do agente
     system_prompt: Optional[str] = None
     modelo_llm: str = "google/gemini-2.0-flash-001"
     temperatura: float = 0.7
@@ -177,8 +182,13 @@ class AgenteBase(BaseModel):
 class AgenteUpdate(BaseModel):
     nome: Optional[str] = None
     descricao: Optional[str] = None
+    # Configurações do Chatwoot
+    chatwoot_url: Optional[str] = None
+    chatwoot_api_token: Optional[str] = None
     chatwoot_account_id: Optional[str] = None
     chatwoot_inbox_id: Optional[str] = None
+    webhook_secret: Optional[str] = None
+    # Configurações do agente
     system_prompt: Optional[str] = None
     modelo_llm: Optional[str] = None
     temperatura: Optional[float] = None
@@ -500,6 +510,115 @@ async def health_check():
     return {"status": "healthy"}
 
 
+# --- API de Modelos OpenRouter ---
+
+# Lista de modelos populares do OpenRouter (fallback se a API não responder)
+OPENROUTER_POPULAR_MODELS = [
+    # Google Gemini
+    {"id": "google/gemini-2.5-flash", "name": "Gemini 2.5 Flash", "provider": "Google"},
+    {"id": "google/gemini-2.5-flash-lite", "name": "Gemini 2.5 Flash Lite", "provider": "Google"},
+    {"id": "google/gemini-2.5-flash-preview", "name": "Gemini 2.5 Flash Preview", "provider": "Google"},
+    {"id": "google/gemini-2.5-pro-exp-03-25:free", "name": "Gemini 2.5 Pro Exp (Free)", "provider": "Google"},
+    {"id": "google/gemini-2.0-flash-001", "name": "Gemini 2.0 Flash", "provider": "Google"},
+    {"id": "google/gemini-2.0-flash-thinking-exp:free", "name": "Gemini 2.0 Flash Thinking (Free)", "provider": "Google"},
+    {"id": "google/gemini-pro-1.5", "name": "Gemini Pro 1.5", "provider": "Google"},
+    {"id": "google/gemini-flash-1.5", "name": "Gemini Flash 1.5", "provider": "Google"},
+    {"id": "google/gemini-flash-1.5-8b", "name": "Gemini Flash 1.5 8B", "provider": "Google"},
+    {"id": "google/gemma-2-27b-it", "name": "Gemma 2 27B", "provider": "Google"},
+    {"id": "google/gemma-2-9b-it:free", "name": "Gemma 2 9B (Free)", "provider": "Google"},
+
+    # DeepSeek
+    {"id": "deepseek/deepseek-r1", "name": "DeepSeek R1", "provider": "DeepSeek"},
+    {"id": "deepseek/deepseek-r1:free", "name": "DeepSeek R1 (Free)", "provider": "DeepSeek"},
+    {"id": "deepseek/deepseek-r1-distill-llama-70b", "name": "DeepSeek R1 Distill Llama 70B", "provider": "DeepSeek"},
+    {"id": "deepseek/deepseek-chat", "name": "DeepSeek Chat V3", "provider": "DeepSeek"},
+    {"id": "deepseek/deepseek-chat:free", "name": "DeepSeek Chat V3 (Free)", "provider": "DeepSeek"},
+    {"id": "deepseek/deepseek-coder", "name": "DeepSeek Coder", "provider": "DeepSeek"},
+
+    # OpenAI
+    {"id": "openai/gpt-4o", "name": "GPT-4o", "provider": "OpenAI"},
+    {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "OpenAI"},
+    {"id": "openai/gpt-4o-mini-2024-07-18", "name": "GPT-4o Mini (2024-07-18)", "provider": "OpenAI"},
+    {"id": "openai/gpt-4-turbo", "name": "GPT-4 Turbo", "provider": "OpenAI"},
+    {"id": "openai/gpt-4-turbo-preview", "name": "GPT-4 Turbo Preview", "provider": "OpenAI"},
+    {"id": "openai/gpt-4", "name": "GPT-4", "provider": "OpenAI"},
+    {"id": "openai/gpt-3.5-turbo", "name": "GPT-3.5 Turbo", "provider": "OpenAI"},
+    {"id": "openai/o1-preview", "name": "O1 Preview", "provider": "OpenAI"},
+    {"id": "openai/o1-mini", "name": "O1 Mini", "provider": "OpenAI"},
+
+    # Anthropic Claude
+    {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "Anthropic"},
+    {"id": "anthropic/claude-3.5-sonnet-20241022", "name": "Claude 3.5 Sonnet (2024-10-22)", "provider": "Anthropic"},
+    {"id": "anthropic/claude-3.5-haiku", "name": "Claude 3.5 Haiku", "provider": "Anthropic"},
+    {"id": "anthropic/claude-3.5-haiku-20241022", "name": "Claude 3.5 Haiku (2024-10-22)", "provider": "Anthropic"},
+    {"id": "anthropic/claude-3-opus", "name": "Claude 3 Opus", "provider": "Anthropic"},
+    {"id": "anthropic/claude-3-sonnet", "name": "Claude 3 Sonnet", "provider": "Anthropic"},
+    {"id": "anthropic/claude-3-haiku", "name": "Claude 3 Haiku", "provider": "Anthropic"},
+
+    # Meta Llama
+    {"id": "meta-llama/llama-3.3-70b-instruct", "name": "Llama 3.3 70B", "provider": "Meta"},
+    {"id": "meta-llama/llama-3.2-90b-vision-instruct", "name": "Llama 3.2 90B Vision", "provider": "Meta"},
+    {"id": "meta-llama/llama-3.1-405b-instruct", "name": "Llama 3.1 405B", "provider": "Meta"},
+    {"id": "meta-llama/llama-3.1-70b-instruct", "name": "Llama 3.1 70B", "provider": "Meta"},
+    {"id": "meta-llama/llama-3.1-8b-instruct:free", "name": "Llama 3.1 8B (Free)", "provider": "Meta"},
+
+    # Mistral
+    {"id": "mistralai/mistral-large-2411", "name": "Mistral Large (2411)", "provider": "Mistral"},
+    {"id": "mistralai/mistral-medium", "name": "Mistral Medium", "provider": "Mistral"},
+    {"id": "mistralai/mistral-small-24b-instruct-2501", "name": "Mistral Small 24B", "provider": "Mistral"},
+    {"id": "mistralai/mistral-7b-instruct:free", "name": "Mistral 7B (Free)", "provider": "Mistral"},
+    {"id": "mistralai/codestral-latest", "name": "Codestral", "provider": "Mistral"},
+
+    # Qwen
+    {"id": "qwen/qwen-2.5-72b-instruct", "name": "Qwen 2.5 72B", "provider": "Qwen"},
+    {"id": "qwen/qwen-2.5-coder-32b-instruct", "name": "Qwen 2.5 Coder 32B", "provider": "Qwen"},
+    {"id": "qwen/qwq-32b:free", "name": "QwQ 32B (Free)", "provider": "Qwen"},
+
+    # Outros
+    {"id": "cohere/command-r-plus", "name": "Command R+", "provider": "Cohere"},
+    {"id": "perplexity/llama-3.1-sonar-huge-128k-online", "name": "Sonar Huge 128K Online", "provider": "Perplexity"},
+]
+
+
+@app.get("/api/modelos-llm")
+async def listar_modelos_llm(buscar_api: bool = False):
+    """
+    Lista os modelos LLM disponíveis do OpenRouter
+
+    Args:
+        buscar_api: Se True, busca a lista atualizada da API do OpenRouter
+    """
+    import httpx
+
+    if buscar_api:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://openrouter.ai/api/v1/models",
+                    headers={"Authorization": f"Bearer {Config.OPENROUTER_API_KEY}"},
+                    timeout=10.0
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    models = []
+                    for model in data.get("data", []):
+                        models.append({
+                            "id": model.get("id"),
+                            "name": model.get("name", model.get("id")),
+                            "provider": model.get("id", "").split("/")[0].title() if "/" in model.get("id", "") else "Unknown",
+                            "context_length": model.get("context_length"),
+                            "pricing": model.get("pricing", {})
+                        })
+                    # Ordena por provider e nome
+                    models.sort(key=lambda x: (x.get("provider", ""), x.get("name", "")))
+                    return {"modelos": models, "fonte": "api", "total": len(models)}
+        except Exception as e:
+            print(f"Erro ao buscar modelos da API OpenRouter: {e}")
+
+    # Retorna lista de modelos populares como fallback
+    return {"modelos": OPENROUTER_POPULAR_MODELS, "fonte": "cache", "total": len(OPENROUTER_POPULAR_MODELS)}
+
+
 @app.post("/webhook/chatwoot")
 async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
     """
@@ -576,6 +695,195 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
     except Exception as e:
         print(f"Erro no webhook: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/webhook/chatwoot/{agente_id}")
+async def chatwoot_webhook_agente(agente_id: int, request: Request, background_tasks: BackgroundTasks):
+    """
+    Webhook dinâmico para receber mensagens do Chatwoot por agente
+
+    Cada agente tem sua própria URL de webhook: /webhook/chatwoot/{agente_id}
+    Configure esta URL no Chatwoot para o evento message_created
+    """
+    try:
+        data = await request.json()
+        print(f"Webhook recebido para agente {agente_id}")
+
+        # Busca o agente no banco de dados
+        tenant_service = await get_tenant_service()
+        agente = await tenant_service.obter_agente(agente_id)
+
+        if not agente:
+            print(f"Agente {agente_id} nao encontrado")
+            raise HTTPException(status_code=404, detail="Agente nao encontrado")
+
+        if not agente.ativo:
+            print(f"Agente {agente_id} inativo")
+            return {"status": "ignored", "reason": "agent inactive"}
+
+        # Valida o evento
+        event = data.get("event")
+        if event != "message_created":
+            print(f"Evento ignorado: {event}")
+            return {"status": "ignored", "reason": "event not message_created"}
+
+        message_type = data.get("message_type")
+        print(f"[Agente {agente_id}] message_type={message_type}, content={data.get('content')}")
+
+        # Ignora mensagens enviadas pelo agente (outgoing)
+        if message_type != "incoming":
+            print(f"Mensagem ignorada: message_type={message_type}")
+            return {"status": "ignored", "reason": "not incoming message"}
+
+        message_id = str(data.get("id"))
+        account_id = str(data.get("account", {}).get("id"))
+        conversation = data.get("conversation", {})
+        conversation_id = str(conversation.get("id"))
+        labels = conversation.get("labels", [])
+
+        sender = data.get("sender", {})
+        phone = sender.get("phone_number", "")
+        sender_name = sender.get("name", "") or sender.get("contact_name", "")
+
+        content = data.get("content", "") or ""
+        attachments = data.get("attachments", []) or []
+
+        # Verifica se e mensagem de audio
+        is_audio = False
+        audio_url = None
+        if attachments:
+            first_attachment = attachments[0]
+            is_audio = first_attachment.get("meta", {}).get("is_recorded_audio", False)
+            if is_audio:
+                audio_url = first_attachment.get("data_url")
+
+        # Ignora se nao tem conteudo nem audio
+        if not content and not is_audio:
+            print(f"Mensagem sem conteudo ignorada")
+            return {"status": "ignored", "reason": "no content or audio"}
+
+        print(f"[Agente {agente_id}] Processando: id={message_id}, phone={phone}, content={content[:50] if content else 'AUDIO'}...")
+
+        # Processa em background com informações do agente
+        background_tasks.add_task(
+            process_incoming_message_for_agent,
+            agente_id=agente_id,
+            message_id=message_id,
+            account_id=account_id,
+            conversation_id=conversation_id,
+            phone=phone,
+            message=content,
+            is_audio=is_audio,
+            audio_url=audio_url,
+            labels=labels,
+            sender_name=sender_name
+        )
+
+        return {"status": "processing", "agent_id": agente_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Erro no webhook do agente {agente_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def process_incoming_message_for_agent(
+    agente_id: int,
+    message_id: str,
+    account_id: str,
+    conversation_id: str,
+    phone: str,
+    message: str,
+    is_audio: bool = False,
+    audio_url: str = None,
+    labels: list = None,
+    sender_name: str = ""
+):
+    """
+    Processa uma mensagem recebida para um agente específico
+
+    Usa as configurações do agente (chatwoot_url, chatwoot_api_token) para responder
+    """
+    from src.services.chatwoot import ChatwootService
+
+    try:
+        # Busca o agente com todas as configurações
+        tenant_service = await get_tenant_service()
+        agente = await tenant_service.obter_agente(agente_id)
+
+        if not agente:
+            print(f"[Agente {agente_id}] Nao encontrado, ignorando mensagem")
+            return
+
+        # Cria instância do ChatwootService com as configurações do agente
+        agente_chatwoot = ChatwootService(
+            base_url=agente.chatwoot_url or Config.CHATWOOT_URL,
+            api_token=agente.chatwoot_api_token or Config.CHATWOOT_API_TOKEN,
+            account_id=agente.chatwoot_account_id or Config.CHATWOOT_ACCOUNT_ID
+        )
+
+        # Sistema de debounce por conversa
+        queue_key = f"agente_{agente_id}_{conversation_id}"
+
+        if queue_key not in message_queues:
+            message_queues[queue_key] = []
+
+        message_queues[queue_key].append({
+            "message_id": message_id,
+            "mensagem": message,
+            "is_audio": is_audio,
+            "audio_url": audio_url,
+            "timestamp": asyncio.get_event_loop().time()
+        })
+
+        # Espera para agrupar mensagens
+        await asyncio.sleep(2.0)
+
+        if not message_queues.get(queue_key):
+            return
+
+        queued_messages = message_queues.pop(queue_key, [])
+        if not queued_messages:
+            return
+
+        # Verifica se a ultima mensagem e audio
+        last_msg = queued_messages[-1]
+        is_audio = last_msg.get("is_audio", False)
+        audio_url = last_msg.get("audio_url")
+
+        # Prepara mensagem final
+        if is_audio and audio_url:
+            audio_data = await agente_chatwoot.download_attachment(audio_url)
+            final_message = await audio_service.transcribe_audio(audio_data)
+        else:
+            final_message = "\n".join([m["mensagem"] for m in queued_messages])
+
+        print(f"[Agente {agente_id}] Processando: {final_message[:50]}...")
+
+        # Processa com o multi-agent runner
+        runner = await get_multi_agent_runner()
+        result = await runner.process(
+            agente=agente,
+            message=final_message,
+            phone=phone,
+            account_id=account_id,
+            conversation_id=conversation_id
+        )
+
+        response_text = result.get("response", "Desculpe, nao consegui processar sua mensagem.")
+        print(f"[Agente {agente_id}] Resposta: {response_text[:100]}...")
+
+        # Envia resposta via Chatwoot do agente
+        await agente_chatwoot.send_message(
+            conversation_id=conversation_id,
+            message=response_text
+        )
+
+    except Exception as e:
+        print(f"[Agente {agente_id}] Erro ao processar mensagem: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 # --- Endpoints da Base de Conhecimento (RAG) ---
@@ -698,6 +1006,12 @@ async def admin_profissionais(request: Request):
     return templates.TemplateResponse("profissionais.html", {"request": request})
 
 
+@app.get("/admin/agentes", response_class=HTMLResponse)
+async def admin_agentes(request: Request):
+    """Pagina de agentes do admin"""
+    return templates.TemplateResponse("agentes.html", {"request": request})
+
+
 @app.get("/admin/rag", response_class=HTMLResponse)
 async def admin_rag(request: Request):
     """Pagina de base de conhecimento"""
@@ -783,11 +1097,11 @@ async def admin_proximos_agendamentos(limit: int = 5):
 
 @app.get("/api/admin/profissionais")
 async def api_listar_profissionais(apenas_ativos: bool = True):
-    """Lista profissionais"""
+    """Lista profissionais do admin (tenant_id = NULL)"""
     try:
         db = await get_db_service()
         agenda = await get_agenda_service(db.pool)
-        profissionais = await agenda.listar_profissionais(apenas_ativos=apenas_ativos)
+        profissionais = await agenda.listar_profissionais(apenas_ativos=apenas_ativos, apenas_admin=True)
         return {"profissionais": profissionais}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -811,16 +1125,17 @@ async def api_criar_profissional(prof: ProfissionalBase):
 
 @app.put("/api/admin/profissionais/{prof_id}")
 async def api_atualizar_profissional(prof_id: int, prof: ProfissionalUpdate):
-    """Atualiza um profissional"""
+    """Atualiza um profissional do admin (tenant_id = NULL)"""
     try:
         db = await get_db_service()
         agenda = await get_agenda_service(db.pool)
         success = await agenda.atualizar_profissional(
-            profissional_id=prof_id,
+            prof_id=prof_id,
             nome=prof.nome,
             cargo=prof.cargo,
             especialidade=prof.especialidade,
-            ativo=prof.ativo
+            ativo=prof.ativo,
+            apenas_admin=True
         )
         if not success:
             raise HTTPException(status_code=404, detail="Profissional nao encontrado")
@@ -833,11 +1148,11 @@ async def api_atualizar_profissional(prof_id: int, prof: ProfissionalUpdate):
 
 @app.delete("/api/admin/profissionais/{prof_id}")
 async def api_deletar_profissional(prof_id: int):
-    """Desativa um profissional"""
+    """Desativa um profissional do admin (tenant_id = NULL)"""
     try:
         db = await get_db_service()
         agenda = await get_agenda_service(db.pool)
-        success = await agenda.deletar_profissional(prof_id)
+        success = await agenda.deletar_profissional(prof_id, apenas_admin=True)
         if not success:
             raise HTTPException(status_code=404, detail="Profissional nao encontrado")
         return {"message": "Profissional desativado"}
@@ -1377,6 +1692,71 @@ async def api_listar_agentes(tenant_id: int, apenas_ativos: bool = True):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# --- API Admin Agentes (agentes do admin sem tenant) ---
+
+@app.get("/api/admin/agentes-admin")
+async def api_listar_agentes_admin(apenas_ativos: bool = True):
+    """Lista agentes do admin (tenant_id = null)"""
+    try:
+        tenant_svc = await get_tenant_service()
+        agentes = await tenant_svc.listar_agentes_admin(apenas_ativos=apenas_ativos)
+        return {"agentes": [
+            {
+                "id": a.id,
+                "nome": a.nome,
+                "descricao": a.descricao,
+                "modelo_llm": a.modelo_llm,
+                "ativo": a.ativo,
+                "tipo": a.tipo,
+                "pode_ser_vinculado": a.pode_ser_vinculado
+            } for a in agentes
+        ]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/agentes-admin")
+async def api_criar_agente_admin(agente: AgenteBase):
+    """Cria um novo agente do admin (sem tenant)"""
+    try:
+        tenant_svc = await get_tenant_service()
+        novo_agente = await tenant_svc.criar_agente(
+            tenant_id=None,  # Admin agentes nao tem tenant
+            nome=agente.nome,
+            descricao=agente.descricao,
+            chatwoot_account_id=agente.chatwoot_account_id,
+            chatwoot_inbox_id=agente.chatwoot_inbox_id,
+            system_prompt=agente.system_prompt,
+            modelo_llm=agente.modelo_llm,
+            temperatura=agente.temperatura,
+            max_tokens=agente.max_tokens,
+            info_empresa=agente.info_empresa
+        )
+        return {"id": novo_agente.id, "message": "Agente criado com sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/agentes-admin/vinculaveis")
+async def api_listar_agentes_admin_vinculaveis(excluir_agente_id: int = None):
+    """Lista agentes do admin que podem ser vinculados"""
+    try:
+        tenant_svc = await get_tenant_service()
+        agentes = await tenant_svc.listar_agentes_admin_vinculaveis(
+            excluir_agente_id=excluir_agente_id
+        )
+        return {"agentes_vinculaveis": [
+            {
+                "id": a.id,
+                "nome": a.nome,
+                "tipo": a.tipo,
+                "descricao": a.descricao
+            } for a in agentes
+        ]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/admin/agentes/{agente_id}")
 async def api_buscar_agente(agente_id: int):
     """Busca um agente por ID"""
@@ -1759,6 +2139,17 @@ async def tenant_pipeline(request: Request, slug: str):
     })
 
 
+@app.get("/tenant/{slug}/profissionais", response_class=HTMLResponse)
+async def tenant_profissionais(request: Request, slug: str):
+    """Pagina de profissionais do tenant"""
+    tenant = await get_tenant_or_404(slug)
+    return templates.TemplateResponse("tenant/profissionais.html", {
+        "request": request,
+        "tenant": tenant,
+        "active_page": "profissionais"
+    })
+
+
 @app.get("/tenant/{slug}/agentes", response_class=HTMLResponse)
 async def tenant_agentes(request: Request, slug: str):
     """Pagina de agentes do tenant"""
@@ -1830,14 +2221,75 @@ async def api_tenant_pipeline(slug: str):
 
 
 @app.get("/api/tenant/{slug}/profissionais")
-async def api_tenant_profissionais(slug: str):
+async def api_tenant_profissionais(slug: str, apenas_ativos: bool = True):
     """Lista profissionais filtrados por tenant"""
     try:
         tenant = await get_tenant_or_404(slug)
         db = await get_db_service()
         agenda = await get_agenda_service(db.pool)
-        profissionais = await agenda.listar_profissionais(tenant_id=tenant.id)
+        profissionais = await agenda.listar_profissionais(tenant_id=tenant.id, apenas_ativos=apenas_ativos)
         return {"profissionais": profissionais}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/tenant/{slug}/profissionais")
+async def api_tenant_criar_profissional(slug: str, prof: ProfissionalBase):
+    """Cria um profissional para o tenant"""
+    try:
+        tenant = await get_tenant_or_404(slug)
+        db = await get_db_service()
+        agenda = await get_agenda_service(db.pool)
+        prof_id = await agenda.criar_profissional(
+            nome=prof.nome,
+            cargo=prof.cargo,
+            especialidade=prof.especialidade,
+            tenant_id=tenant.id
+        )
+        return {"id": prof_id, "message": "Profissional criado com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/tenant/{slug}/profissionais/{prof_id}")
+async def api_tenant_atualizar_profissional(slug: str, prof_id: int, prof: ProfissionalUpdate):
+    """Atualiza um profissional do tenant"""
+    try:
+        tenant = await get_tenant_or_404(slug)
+        db = await get_db_service()
+        agenda = await get_agenda_service(db.pool)
+        success = await agenda.atualizar_profissional(
+            prof_id=prof_id,
+            nome=prof.nome,
+            cargo=prof.cargo,
+            especialidade=prof.especialidade,
+            ativo=prof.ativo,
+            tenant_id=tenant.id
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="Profissional nao encontrado")
+        return {"message": "Profissional atualizado com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/tenant/{slug}/profissionais/{prof_id}")
+async def api_tenant_deletar_profissional(slug: str, prof_id: int):
+    """Desativa um profissional do tenant"""
+    try:
+        tenant = await get_tenant_or_404(slug)
+        db = await get_db_service()
+        agenda = await get_agenda_service(db.pool)
+        success = await agenda.desativar_profissional(prof_id, tenant_id=tenant.id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Profissional nao encontrado")
+        return {"message": "Profissional desativado com sucesso"}
     except HTTPException:
         raise
     except Exception as e:

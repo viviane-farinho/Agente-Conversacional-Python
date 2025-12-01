@@ -307,6 +307,41 @@ class TenantService:
 
             return [self._row_to_agente(row) for row in rows]
 
+    async def listar_agentes_admin(self, apenas_ativos: bool = True) -> List[Agente]:
+        """Lista agentes do admin (tenant_id = NULL)"""
+        db = await get_db_service()
+        async with db.pool.acquire() as conn:
+            if apenas_ativos:
+                rows = await conn.fetch("""
+                    SELECT * FROM agentes WHERE tenant_id IS NULL AND ativo = true ORDER BY nome
+                """)
+            else:
+                rows = await conn.fetch("""
+                    SELECT * FROM agentes WHERE tenant_id IS NULL ORDER BY nome
+                """)
+
+            return [self._row_to_agente(row) for row in rows]
+
+    async def listar_agentes_admin_vinculaveis(self, excluir_agente_id: int = None) -> List[Agente]:
+        """Lista agentes do admin que podem ser vinculados (pode_ser_vinculado = true)"""
+        db = await get_db_service()
+        async with db.pool.acquire() as conn:
+            query = """
+                SELECT * FROM agentes
+                WHERE tenant_id IS NULL AND ativo = true AND pode_ser_vinculado = true
+            """
+            params = []
+            if excluir_agente_id:
+                query += " AND id != $1"
+                params.append(excluir_agente_id)
+            query += " ORDER BY nome"
+
+            if params:
+                rows = await conn.fetch(query, *params)
+            else:
+                rows = await conn.fetch(query)
+            return [self._row_to_agente(row) for row in rows]
+
     async def atualizar_agente(self, agente_id: int, **kwargs) -> Optional[Agente]:
         """Atualiza um agente"""
         db = await get_db_service()

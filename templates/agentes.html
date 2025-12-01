@@ -1,10 +1,13 @@
-{% extends "tenant/base_tenant.html" %}
+{% extends "base.html" %}
 
-{% block title %}Agentes - {{ tenant.nome }}{% endblock %}
+{% block title %}Agentes - Secretaria IA{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-robot me-2"></i>Agentes</h2>
+    <div>
+        <h2><i class="bi bi-robot me-2"></i>Agentes do Admin</h2>
+        <p class="text-muted mb-0">Gerencie seus agentes e multi-agentes</p>
+    </div>
     <button class="btn btn-primary" onclick="mostrarModalAgente()">
         <i class="bi bi-plus-lg me-2"></i>Novo Agente
     </button>
@@ -358,10 +361,18 @@
         try {
             const data = await apiCall('/api/modelos-llm');
             modelosLLM = data.modelos || [];
+            atualizarSelectModelos();
         } catch (error) {
             console.error('Erro ao carregar modelos:', error);
+            // Fallback para modelo padrao
             modelosLLM = [{ id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash', provider: 'Google' }];
+            atualizarSelectModelos();
         }
+    }
+
+    function atualizarSelectModelos() {
+        // Nao precisa fazer nada aqui, o dropdown e preenchido dinamicamente
+        console.log(`${modelosLLM.length} modelos carregados`);
     }
 
     function filtrarModelos() {
@@ -438,7 +449,8 @@
 
     async function carregarAgentes() {
         try {
-            const data = await apiCall(`/api/admin/tenants/${TENANT_ID}/agentes?apenas_ativos=false`);
+            // Busca agentes do admin (tenant_id = null)
+            const data = await apiCall('/api/admin/agentes-admin?apenas_ativos=false');
             agentes = data.agentes || [];
             renderizarAgentes();
         } catch (error) {
@@ -572,7 +584,7 @@
     async function salvarAgente() {
         const id = document.getElementById('agenteId').value;
         const dados = {
-            tenant_id: TENANT_ID,
+            tenant_id: null,  // Admin agentes nao tem tenant
             nome: document.getElementById('inputNome').value,
             descricao: document.getElementById('inputDescricao').value || null,
             modelo_llm: document.getElementById('inputModelo').value,
@@ -592,7 +604,7 @@
                 await apiCall(`/api/admin/agentes/${id}`, 'PUT', dados);
                 showToast('Agente atualizado!');
             } else {
-                await apiCall('/api/admin/agentes', 'POST', dados);
+                await apiCall('/api/admin/agentes-admin', 'POST', dados);
                 showToast('Agente criado!');
             }
 
@@ -762,9 +774,9 @@
             return;
         }
 
-        // Carrega agentes vinculaveis
+        // Carrega agentes vinculaveis (admin agentes, tenant_id = null)
         try {
-            const data = await apiCall(`/api/admin/agentes/vinculaveis?tenant_id=${TENANT_ID}&excluir_agente_id=${agenteAtual.id}`);
+            const data = await apiCall(`/api/admin/agentes-admin/vinculaveis?excluir_agente_id=${agenteAtual.id}`);
             const select = document.getElementById('selectAgenteVincular');
 
             if (data.agentes_vinculaveis.length === 0) {

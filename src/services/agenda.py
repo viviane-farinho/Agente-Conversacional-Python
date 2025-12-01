@@ -88,19 +88,32 @@ class AgendaService:
         self,
         nome: str,
         especialidade: str = None,
-        cargo: str = None
+        cargo: str = None,
+        tenant_id: int = None
     ) -> int:
         """Cria um novo profissional"""
         async with self.pool.acquire() as conn:
             result = await conn.fetchrow("""
-                INSERT INTO profissionais (nome, especialidade, cargo)
-                VALUES ($1, $2, $3)
+                INSERT INTO profissionais (nome, especialidade, cargo, tenant_id)
+                VALUES ($1, $2, $3, $4)
                 RETURNING id
-            """, nome, especialidade, cargo)
+            """, nome, especialidade, cargo, tenant_id)
             return result["id"]
 
-    async def listar_profissionais(self, apenas_ativos: bool = True, tenant_id: int = None) -> List[dict]:
-        """Lista todos os profissionais, opcionalmente filtrados por tenant"""
+    async def listar_profissionais(
+        self,
+        apenas_ativos: bool = True,
+        tenant_id: int = None,
+        apenas_admin: bool = False
+    ) -> List[dict]:
+        """
+        Lista profissionais filtrados por tenant
+
+        Args:
+            apenas_ativos: Se True, retorna apenas profissionais ativos
+            tenant_id: ID do tenant para filtrar (profissionais do tenant específico)
+            apenas_admin: Se True, retorna apenas profissionais do admin (tenant_id IS NULL)
+        """
         async with self.pool.acquire() as conn:
             conditions = []
             params = []
@@ -109,7 +122,12 @@ class AgendaService:
             if apenas_ativos:
                 conditions.append("ativo = true")
 
-            if tenant_id is not None:
+            # Filtro por tenant_id
+            if apenas_admin:
+                # Profissionais do admin (sem tenant)
+                conditions.append("tenant_id IS NULL")
+            elif tenant_id is not None:
+                # Profissionais de um tenant específico
                 conditions.append(f"tenant_id = ${param_num}")
                 params.append(tenant_id)
                 param_num += 1
@@ -130,18 +148,40 @@ class AgendaService:
 
     async def atualizar_profissional(
         self,
-        profissional_id: int,
+        prof_id: int,
         nome: str = None,
         especialidade: str = None,
         cargo: str = None,
-        ativo: bool = None
+        ativo: bool = None,
+        tenant_id: int = None,
+        apenas_admin: bool = False
     ) -> bool:
-        """Atualiza um profissional"""
+        """
+        Atualiza um profissional
+
+        Args:
+            prof_id: ID do profissional
+            nome, especialidade, cargo, ativo: campos a atualizar
+            tenant_id: Se especificado, verifica se o profissional pertence ao tenant
+            apenas_admin: Se True, só atualiza profissionais do admin (tenant_id IS NULL)
+        """
         async with self.pool.acquire() as conn:
-            current = await conn.fetchrow(
-                "SELECT * FROM profissionais WHERE id = $1",
-                profissional_id
-            )
+            # Verifica se o profissional existe e pertence ao contexto correto
+            if apenas_admin:
+                current = await conn.fetchrow(
+                    "SELECT * FROM profissionais WHERE id = $1 AND tenant_id IS NULL",
+                    prof_id
+                )
+            elif tenant_id is not None:
+                current = await conn.fetchrow(
+                    "SELECT * FROM profissionais WHERE id = $1 AND tenant_id = $2",
+                    prof_id, tenant_id
+                )
+            else:
+                current = await conn.fetchrow(
+                    "SELECT * FROM profissionais WHERE id = $1",
+                    prof_id
+                )
             if not current:
                 return False
 
@@ -154,13 +194,36 @@ class AgendaService:
                 especialidade if especialidade is not None else current["especialidade"],
                 cargo if cargo is not None else current["cargo"],
                 ativo if ativo is not None else current["ativo"],
-                profissional_id
+                prof_id
             )
             return True
 
-    async def deletar_profissional(self, profissional_id: int) -> bool:
-        """Desativa um profissional (soft delete)"""
+    async def deletar_profissional(self, profissional_id: int, apenas_admin: bool = False) -> bool:
+        """Desativa um profissional do admin (soft delete)"""
         async with self.pool.acquire() as conn:
+            if apenas_admin:
+                result = await conn.execute("""
+                    UPDATE profissionais SET ativo = false, updated_at = NOW()
+                    WHERE id = $1 AND tenant_id IS NULL
+                """, profissional_id)
+            else:
+                result = await conn.execute("""
+                    UPDATE profissionais SET ativo = false, updated_at = NOW()
+                    WHERE id = $1
+                """, profissional_id)
+            return "UPDATE 1" in result
+
+    async def desativar_profissional(self, profissional_id: int, tenant_id: int = None) -> bool:
+        """Desativa um profissional (soft delete) verificando tenant"""
+        async with self.pool.acquire() as conn:
+            if tenant_id is not None:
+                # Verifica se pertence ao tenant
+                existing = await conn.fetchrow(
+                    "SELECT id FROM profissionais WHERE id = $1 AND tenant_id = $2",
+                    profissional_id, tenant_id
+                )
+                if not existing:
+                    return False
             result = await conn.execute("""
                 UPDATE profissionais SET ativo = false, updated_at = NOW()
                 WHERE id = $1
