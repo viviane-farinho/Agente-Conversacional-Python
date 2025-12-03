@@ -4,7 +4,7 @@ Usa conexao sincrona (psycopg2) para evitar problemas com asyncio em threads
 """
 from typing import Optional, Annotated
 from langchain_core.tools import tool
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
 

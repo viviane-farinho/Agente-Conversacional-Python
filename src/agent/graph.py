@@ -11,7 +11,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, System
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolNode
+from langgraph.prebuilt import ToolNode  # noqa: F401 - usado em create_tools_node
 
 from src.config import Config
 from src.agent.tools import ALL_TOOLS, set_context

@@ -4,13 +4,11 @@ Ferramentas do Agente Secretária IA
 import asyncio
 from typing import Optional, Annotated
 from langchain_core.tools import tool
-from datetime import datetime
 
 from src.services.google_calendar import get_calendar_service
 from src.services.google_drive import get_drive_service
 from src.services.chatwoot import chatwoot_service
 from src.services.telegram import telegram_service
-from src.services.rag import get_rag_service
 from src.services.database import get_db_service
 
 
