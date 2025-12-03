@@ -7,12 +7,18 @@ from datetime import datetime, timezone, date, timedelta
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Request, HTTPException, BackgroundTasks, Depends, status, Form, Cookie
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel, Field
 import uvicorn
+import secrets
+import hmac
+import hashlib
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from src.config import Config
 from src.services.database import get_db_service
@@ -171,6 +177,9 @@ async def lifespan(app: FastAPI):
 
 # --- Aplicacao FastAPI ---
 
+# Rate Limiter
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="Secretaria IA",
     description="Sistema de atendimento via WhatsApp para clinicas medicas",
@@ -178,8 +187,87 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Adiciona rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # Templates
 templates = Jinja2Templates(directory="templates")
+
+# Sessoes ativas (em producao, usar Redis ou banco de dados)
+active_sessions: dict = {}
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """Middleware para redirecionar para login quando nao autenticado"""
+    # Rotas que precisam de autenticacao
+    protected_paths = ["/admin", "/api/admin"]
+
+    # Verifica se a rota e protegida
+    is_protected = any(request.url.path.startswith(p) for p in protected_paths)
+
+    if is_protected:
+        session_token = request.cookies.get("session")
+        if not session_token or session_token not in active_sessions:
+            # Se for uma requisicao de API, retorna 401
+            if request.url.path.startswith("/api/"):
+                return HTMLResponse(
+                    content='{"detail":"Nao autenticado"}',
+                    status_code=401,
+                    media_type="application/json"
+                )
+            # Se for pagina HTML, redireciona para login
+            return RedirectResponse(url="/login", status_code=302)
+
+    return await call_next(request)
+
+
+def generate_session_token() -> str:
+    """Gera um token de sessao seguro"""
+    return secrets.token_urlsafe(32)
+
+
+def verify_session(session_token: str = Cookie(None, alias="session")) -> str:
+    """Verifica se a sessao e valida"""
+    if not session_token or session_token not in active_sessions:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessao invalida"
+        )
+    return active_sessions[session_token]
+
+
+async def get_current_user(request: Request) -> Optional[str]:
+    """Obtem o usuario atual da sessao (ou None se nao autenticado)"""
+    session_token = request.cookies.get("session")
+    if session_token and session_token in active_sessions:
+        return active_sessions[session_token]
+    return None
+
+
+def verify_admin(request: Request):
+    """Verifica se o usuario esta autenticado via sessao"""
+    session_token = request.cookies.get("session")
+    if not session_token or session_token not in active_sessions:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Nao autenticado"
+        )
+    return active_sessions[session_token]
+
+
+def verify_webhook_signature(payload: bytes, signature: str) -> bool:
+    """Verifica assinatura do webhook do Chatwoot"""
+    if not Config.CHATWOOT_WEBHOOK_SECRET:
+        return True  # Se não configurado, aceita (dev mode)
+
+    expected = hmac.new(
+        Config.CHATWOOT_WEBHOOK_SECRET.encode(),
+        payload,
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
 
 
 # --- Processamento de Mensagens ---
@@ -362,6 +450,7 @@ async def health_check():
 
 
 @app.post("/webhook/chatwoot")
+@limiter.limit("30/minute")  # Maximo 30 webhooks por minuto por IP
 async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
     """
     Webhook para receber mensagens do Chatwoot
@@ -370,6 +459,13 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
     O processamento e feito em background para responder rapidamente ao webhook.
     """
     try:
+        # Validar assinatura do webhook (se configurado)
+        body = await request.body()
+        signature = request.headers.get("X-Chatwoot-Signature", "")
+        if not verify_webhook_signature(body, signature):
+            print("Webhook com assinatura invalida rejeitado")
+            raise HTTPException(status_code=401, detail="Assinatura invalida")
+
         data = await request.json()
         print(f"Webhook recebido")
 
@@ -536,10 +632,69 @@ async def buscar_documentos(busca: BuscaDocumento):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# --- Autenticacao Admin ---
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Pagina de login"""
+    # Se ja estiver autenticado, redireciona para o admin
+    user = await get_current_user(request)
+    if user:
+        return RedirectResponse(url="/admin", status_code=302)
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.post("/login")
+async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    """Processa o login"""
+    # Verifica credenciais
+    correct_username = secrets.compare_digest(
+        username.encode("utf8"),
+        Config.ADMIN_USERNAME.encode("utf8")
+    )
+    correct_password = secrets.compare_digest(
+        password.encode("utf8"),
+        Config.ADMIN_PASSWORD.encode("utf8")
+    )
+
+    if not (correct_username and correct_password):
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "Usuario ou senha incorretos"
+        })
+
+    # Cria sessao
+    session_token = generate_session_token()
+    active_sessions[session_token] = username
+
+    # Redireciona para o admin com cookie de sessao
+    response = RedirectResponse(url="/admin", status_code=302)
+    response.set_cookie(
+        key="session",
+        value=session_token,
+        httponly=True,
+        max_age=86400,  # 24 horas
+        samesite="lax"
+    )
+    return response
+
+
+@app.get("/logout")
+async def logout(request: Request):
+    """Encerra a sessao"""
+    session_token = request.cookies.get("session")
+    if session_token and session_token in active_sessions:
+        del active_sessions[session_token]
+
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie("session")
+    return response
+
+
 # --- Endpoints Admin (HTML) ---
 
 @app.get("/admin", response_class=HTMLResponse)
-async def admin_dashboard(request: Request):
+async def admin_dashboard(request: Request, username: str = Depends(verify_admin)):
     """Dashboard administrativo"""
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
@@ -548,31 +703,31 @@ async def admin_dashboard(request: Request):
 
 
 @app.get("/admin/agenda", response_class=HTMLResponse)
-async def admin_agenda(request: Request):
+async def admin_agenda(request: Request, username: str = Depends(verify_admin)):
     """Pagina de agenda"""
     return templates.TemplateResponse("agenda.html", {"request": request})
 
 
 @app.get("/admin/profissionais", response_class=HTMLResponse)
-async def admin_profissionais(request: Request):
+async def admin_profissionais(request: Request, username: str = Depends(verify_admin)):
     """Pagina de profissionais"""
     return templates.TemplateResponse("profissionais.html", {"request": request})
 
 
 @app.get("/admin/rag", response_class=HTMLResponse)
-async def admin_rag(request: Request):
+async def admin_rag(request: Request, username: str = Depends(verify_admin)):
     """Pagina de base de conhecimento"""
     return templates.TemplateResponse("rag.html", {"request": request})
 
 
 @app.get("/admin/prompts", response_class=HTMLResponse)
-async def admin_prompts(request: Request):
+async def admin_prompts(request: Request, username: str = Depends(verify_admin)):
     """Pagina de prompts"""
     return templates.TemplateResponse("prompts.html", {"request": request})
 
 
 @app.get("/admin/pipeline", response_class=HTMLResponse)
-async def admin_pipeline(request: Request):
+async def admin_pipeline(request: Request, username: str = Depends(verify_admin)):
     """Pagina de pipeline de atendimento"""
     return templates.TemplateResponse("pipeline.html", {"request": request})
 
@@ -580,7 +735,7 @@ async def admin_pipeline(request: Request):
 # --- API Admin ---
 
 @app.get("/api/admin/stats")
-async def admin_stats():
+async def admin_stats(username: str = Depends(verify_admin)):
     """Estatisticas para o dashboard"""
     try:
         db = await get_db_service()
@@ -619,7 +774,7 @@ async def admin_stats():
 
 
 @app.get("/api/admin/proximos-agendamentos")
-async def admin_proximos_agendamentos(limit: int = 5):
+async def admin_proximos_agendamentos(limit: int = 5, username: str = Depends(verify_admin)):
     """Lista proximos agendamentos"""
     try:
         db = await get_db_service()
@@ -643,7 +798,7 @@ async def admin_proximos_agendamentos(limit: int = 5):
 # --- API Profissionais ---
 
 @app.get("/api/admin/profissionais")
-async def api_listar_profissionais(apenas_ativos: bool = True):
+async def api_listar_profissionais(apenas_ativos: bool = True, username: str = Depends(verify_admin)):
     """Lista profissionais"""
     try:
         db = await get_db_service()
@@ -655,7 +810,7 @@ async def api_listar_profissionais(apenas_ativos: bool = True):
 
 
 @app.post("/api/admin/profissionais")
-async def api_criar_profissional(prof: ProfissionalBase):
+async def api_criar_profissional(prof: ProfissionalBase, username: str = Depends(verify_admin)):
     """Cria um profissional"""
     try:
         db = await get_db_service()
@@ -671,7 +826,7 @@ async def api_criar_profissional(prof: ProfissionalBase):
 
 
 @app.put("/api/admin/profissionais/{prof_id}")
-async def api_atualizar_profissional(prof_id: int, prof: ProfissionalUpdate):
+async def api_atualizar_profissional(prof_id: int, prof: ProfissionalUpdate, username: str = Depends(verify_admin)):
     """Atualiza um profissional"""
     try:
         db = await get_db_service()
@@ -693,7 +848,7 @@ async def api_atualizar_profissional(prof_id: int, prof: ProfissionalUpdate):
 
 
 @app.delete("/api/admin/profissionais/{prof_id}")
-async def api_deletar_profissional(prof_id: int):
+async def api_deletar_profissional(prof_id: int, username: str = Depends(verify_admin)):
     """Desativa um profissional"""
     try:
         db = await get_db_service()
@@ -715,7 +870,8 @@ async def api_listar_agendamentos(
     profissional_id: Optional[int] = None,
     data_inicio: Optional[str] = None,
     data_fim: Optional[str] = None,
-    status: Optional[str] = None
+    status: Optional[str] = None,
+    username: str = Depends(verify_admin)
 ):
     """Lista agendamentos"""
     try:
@@ -737,7 +893,7 @@ async def api_listar_agendamentos(
 
 
 @app.get("/api/admin/agendamentos/{ag_id}")
-async def api_buscar_agendamento(ag_id: int):
+async def api_buscar_agendamento(ag_id: int, username: str = Depends(verify_admin)):
     """Busca um agendamento"""
     try:
         db = await get_db_service()
@@ -753,7 +909,7 @@ async def api_buscar_agendamento(ag_id: int):
 
 
 @app.post("/api/admin/agendamentos")
-async def api_criar_agendamento(ag: AgendamentoBase):
+async def api_criar_agendamento(ag: AgendamentoBase, username: str = Depends(verify_admin)):
     """Cria um agendamento"""
     try:
         db = await get_db_service()
@@ -786,7 +942,7 @@ async def api_criar_agendamento(ag: AgendamentoBase):
 
 
 @app.put("/api/admin/agendamentos/{ag_id}")
-async def api_atualizar_agendamento(ag_id: int, ag: AgendamentoUpdate):
+async def api_atualizar_agendamento(ag_id: int, ag: AgendamentoUpdate, username: str = Depends(verify_admin)):
     """Atualiza um agendamento"""
     try:
         db = await get_db_service()
@@ -814,7 +970,7 @@ async def api_atualizar_agendamento(ag_id: int, ag: AgendamentoUpdate):
 
 
 @app.post("/api/admin/agendamentos/{ag_id}/cancelar")
-async def api_cancelar_agendamento(ag_id: int):
+async def api_cancelar_agendamento(ag_id: int, username: str = Depends(verify_admin)):
     """Cancela um agendamento"""
     try:
         db = await get_db_service()
@@ -830,7 +986,7 @@ async def api_cancelar_agendamento(ag_id: int):
 
 
 @app.post("/api/admin/agendamentos/{ag_id}/confirmar")
-async def api_confirmar_agendamento(ag_id: int):
+async def api_confirmar_agendamento(ag_id: int, username: str = Depends(verify_admin)):
     """Confirma um agendamento"""
     try:
         db = await get_db_service()
@@ -849,7 +1005,8 @@ async def api_confirmar_agendamento(ag_id: int):
 async def api_horarios_disponiveis(
     profissional_id: int,
     data: str,
-    duracao: int = 30
+    duracao: int = 30,
+    username: str = Depends(verify_admin)
 ):
     """Lista horarios disponiveis para agendamento"""
     try:
@@ -870,7 +1027,7 @@ async def api_horarios_disponiveis(
 # --- API Prompts ---
 
 @app.get("/api/admin/prompts")
-async def api_listar_prompts():
+async def api_listar_prompts(username: str = Depends(verify_admin)):
     """Lista todos os prompts"""
     try:
         db = await get_db_service()
@@ -882,7 +1039,7 @@ async def api_listar_prompts():
 
 
 @app.post("/api/admin/prompts")
-async def api_salvar_prompt(prompt: PromptBase):
+async def api_salvar_prompt(prompt: PromptBase, username: str = Depends(verify_admin)):
     """Salva ou atualiza um prompt"""
     try:
         db = await get_db_service()
@@ -898,7 +1055,7 @@ async def api_salvar_prompt(prompt: PromptBase):
 
 
 @app.delete("/api/admin/prompts/{nome}")
-async def api_deletar_prompt(nome: str):
+async def api_deletar_prompt(nome: str, username: str = Depends(verify_admin)):
     """Remove um prompt"""
     try:
         db = await get_db_service()
@@ -914,7 +1071,7 @@ async def api_deletar_prompt(nome: str):
 
 
 @app.get("/api/admin/prompt-principal")
-async def api_obter_prompt_principal():
+async def api_obter_prompt_principal(username: str = Depends(verify_admin)):
     """Obtem o prompt principal do agente"""
     try:
         db = await get_db_service()
@@ -934,7 +1091,7 @@ async def api_obter_prompt_principal():
 
 
 @app.post("/api/admin/prompt-principal")
-async def api_salvar_prompt_principal(prompt: PromptPrincipalUpdate):
+async def api_salvar_prompt_principal(prompt: PromptPrincipalUpdate, username: str = Depends(verify_admin)):
     """Salva o prompt principal"""
     try:
         db = await get_db_service()
@@ -950,7 +1107,7 @@ async def api_salvar_prompt_principal(prompt: PromptPrincipalUpdate):
 
 
 @app.post("/api/admin/prompt-principal/restaurar")
-async def api_restaurar_prompt_principal():
+async def api_restaurar_prompt_principal(username: str = Depends(verify_admin)):
     """Restaura o prompt principal para o padrao"""
     try:
         db = await get_db_service()
@@ -964,7 +1121,7 @@ async def api_restaurar_prompt_principal():
 # --- API Pipeline de Atendimento ---
 
 @app.get("/api/admin/pipeline")
-async def api_listar_pipeline():
+async def api_listar_pipeline(username: str = Depends(verify_admin)):
     """Lista todas as conversas do pipeline com estatisticas"""
     try:
         db = await get_db_service()
@@ -986,7 +1143,7 @@ async def api_listar_pipeline():
 
 
 @app.post("/api/admin/pipeline")
-async def api_criar_conversa_pipeline(conversa: PipelineConversaBase):
+async def api_criar_conversa_pipeline(conversa: PipelineConversaBase, username: str = Depends(verify_admin)):
     """Cria uma nova conversa no pipeline"""
     try:
         db = await get_db_service()
@@ -1006,7 +1163,7 @@ async def api_criar_conversa_pipeline(conversa: PipelineConversaBase):
 
 
 @app.put("/api/admin/pipeline/{conversa_id}")
-async def api_atualizar_conversa_pipeline(conversa_id: int, conversa: PipelineConversaUpdate):
+async def api_atualizar_conversa_pipeline(conversa_id: int, conversa: PipelineConversaUpdate, username: str = Depends(verify_admin)):
     """Atualiza uma conversa no pipeline"""
     try:
         db = await get_db_service()
@@ -1032,7 +1189,7 @@ async def api_atualizar_conversa_pipeline(conversa_id: int, conversa: PipelineCo
 
 
 @app.post("/api/admin/pipeline/{conversa_id}/mover")
-async def api_mover_conversa_pipeline(conversa_id: int, dados: PipelineMoverEtapa):
+async def api_mover_conversa_pipeline(conversa_id: int, dados: PipelineMoverEtapa, username: str = Depends(verify_admin)):
     """Move uma conversa para outra etapa"""
     try:
         db = await get_db_service()
@@ -1047,7 +1204,7 @@ async def api_mover_conversa_pipeline(conversa_id: int, dados: PipelineMoverEtap
 
 
 @app.delete("/api/admin/pipeline/{conversa_id}")
-async def api_deletar_conversa_pipeline(conversa_id: int):
+async def api_deletar_conversa_pipeline(conversa_id: int, username: str = Depends(verify_admin)):
     """Remove uma conversa do pipeline"""
     try:
         db = await get_db_service()
@@ -1062,7 +1219,7 @@ async def api_deletar_conversa_pipeline(conversa_id: int):
 
 
 @app.get("/api/admin/pipeline/{conversa_id}/historico")
-async def api_historico_conversa_pipeline(conversa_id: int):
+async def api_historico_conversa_pipeline(conversa_id: int, username: str = Depends(verify_admin)):
     """Retorna o historico de mensagens de uma conversa"""
     try:
         db = await get_db_service()

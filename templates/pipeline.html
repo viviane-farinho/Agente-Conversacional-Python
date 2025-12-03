@@ -498,11 +498,16 @@
 
         let agendamentoHTML = '';
         if (conversa.agendamento_data) {
-            const dataAg = new Date(conversa.agendamento_data);
+            // Formata data/hora diretamente do ISO string sem conversao de timezone
+            const dataStr = conversa.agendamento_data;
+            const partes = dataStr.split('T');
+            const dataParte = partes[0].split('-');
+            const horaParte = partes[1] ? partes[1].substring(0, 5) : '00:00';
+            const dataFormatada = `${dataParte[2]}/${dataParte[1]}/${dataParte[0]}`;
             agendamentoHTML = `
                 <div class="agendamento-info">
                     <i class="bi bi-calendar-check me-1"></i>
-                    ${dataAg.toLocaleDateString('pt-BR')} as ${dataAg.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}
+                    ${dataFormatada} as ${horaParte}
                     ${conversa.profissional_nome ? `<br><small>${conversa.profissional_nome}</small>` : ''}
                 </div>
             `;

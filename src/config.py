@@ -55,6 +55,13 @@ class Config:
     # Histórico de mensagens
     CONTEXT_WINDOW_LENGTH = int(os.getenv("CONTEXT_WINDOW_LENGTH", "50"))
 
+    # Admin Authentication
+    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")  # MUDAR EM PRODUÇÃO!
+
+    # Webhook Security
+    CHATWOOT_WEBHOOK_SECRET = os.getenv("CHATWOOT_WEBHOOK_SECRET", "")
+
 
 # Informações da clínica
 CLINIC_INFO = {

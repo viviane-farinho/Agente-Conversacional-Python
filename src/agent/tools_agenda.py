@@ -171,18 +171,43 @@ def _atualizar_agendamento_sync(agendamento_id, data_hora=None, status=None, con
         conn.close()
 
 
-def _cancelar_agendamento_sync(agendamento_id):
-    """Cancela agendamento (sincrono)"""
+def _cancelar_agendamento_sync(agendamento_id, motivo=None):
+    """Cancela agendamento (sincrono) e atualiza pipeline"""
     conn = _get_connection()
     try:
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Busca dados do agendamento antes de cancelar
             cur.execute("""
-                UPDATE agendamentos
-                SET status = 'cancelado', updated_at = NOW()
+                SELECT paciente_telefone, paciente_nome
+                FROM agendamentos
                 WHERE id = %s
             """, (agendamento_id,))
+            ag_data = cur.fetchone()
+
+            # Atualiza o agendamento
+            obs_cancelamento = f"Cancelado pelo paciente" if not motivo else f"Cancelado: {motivo}"
+            cur.execute("""
+                UPDATE agendamentos
+                SET status = 'cancelado',
+                    updated_at = NOW(),
+                    observacoes = COALESCE(observacoes || ' | ', '') || %s
+                WHERE id = %s
+            """, (obs_cancelamento, agendamento_id))
+
+            rows_affected = cur.rowcount
+
+            # Se cancelou e tem telefone, atualiza o pipeline
+            if rows_affected > 0 and ag_data and ag_data.get("paciente_telefone"):
+                cur.execute("""
+                    UPDATE pipeline_conversas
+                    SET etapa = 'cancelado',
+                        agendamento_id = NULL,
+                        ultima_atualizacao = NOW()
+                    WHERE telefone = %s
+                """, (ag_data["paciente_telefone"],))
+
             conn.commit()
-            return cur.rowcount > 0
+            return rows_affected > 0
     finally:
         conn.close()
 
@@ -541,11 +566,12 @@ def remarcar_agendamento(
 
 @tool
 def cancelar_agendamento(
-    agendamento_id: Annotated[int, "ID do agendamento a cancelar"]
+    agendamento_id: Annotated[int, "ID do agendamento a cancelar"],
+    motivo: Annotated[Optional[str], "Motivo do cancelamento"] = None
 ) -> str:
     """
-    Cancela um agendamento.
-    Use quando o paciente precisar cancelar a consulta.
+    Cancela um agendamento pelo ID.
+    Use quando souber o ID do agendamento.
     """
     try:
         # Busca o agendamento
@@ -553,8 +579,11 @@ def cancelar_agendamento(
         if not ag:
             return f"Agendamento ID {agendamento_id} nao encontrado."
 
+        if ag.get("status") == "cancelado":
+            return "Este agendamento ja esta cancelado."
+
         # Cancela
-        success = _cancelar_agendamento_sync(agendamento_id)
+        success = _cancelar_agendamento_sync(agendamento_id, motivo)
 
         if not success:
             return "Erro ao cancelar agendamento."
@@ -564,6 +593,73 @@ def cancelar_agendamento(
             data_hora = datetime.fromisoformat(data_hora)
 
         return f"Agendamento cancelado com sucesso! Consulta de {ag['paciente_nome']} em {data_hora.strftime('%d/%m/%Y as %H:%M')} foi cancelada."
+
+    except Exception as e:
+        return f"Erro ao cancelar: {str(e)}"
+
+
+@tool
+def cancelar_agendamento_paciente(
+    telefone: Annotated[str, "Telefone do paciente com DDD"],
+    confirmar: Annotated[bool, "True para confirmar o cancelamento"] = False,
+    motivo: Annotated[Optional[str], "Motivo do cancelamento"] = None
+) -> str:
+    """
+    Cancela o proximo agendamento de um paciente pelo telefone.
+    Use quando o paciente pedir para cancelar sua consulta.
+    IMPORTANTE: Primeiro chame com confirmar=False para mostrar os dados ao paciente.
+    Depois chame novamente com confirmar=True apos o paciente confirmar.
+    """
+    try:
+        # Busca agendamentos futuros do paciente
+        agendamentos = _buscar_agendamentos_sync(
+            telefone=telefone,
+            data_inicio=datetime.now()
+        )
+
+        if not agendamentos:
+            return "Nenhum agendamento futuro encontrado para este telefone. Nao ha nada para cancelar."
+
+        # Se tem mais de um agendamento, lista todos
+        if len(agendamentos) > 1 and not confirmar:
+            result = f"Encontrei {len(agendamentos)} agendamentos futuros:\n\n"
+            for ag in agendamentos:
+                data_hora = ag["data_hora"]
+                if isinstance(data_hora, str):
+                    data_hora = datetime.fromisoformat(data_hora)
+                result += f"- ID {ag['id']}: {data_hora.strftime('%d/%m/%Y as %H:%M')} com {ag.get('profissional_nome', 'N/A')}\n"
+            result += "\nPergunta ao paciente qual agendamento deseja cancelar e use a ferramenta cancelar_agendamento com o ID especifico."
+            return result
+
+        # Pega o proximo agendamento
+        ag = agendamentos[0]
+        data_hora = ag["data_hora"]
+        if isinstance(data_hora, str):
+            data_hora = datetime.fromisoformat(data_hora)
+
+        if ag.get("status") == "cancelado":
+            return "O agendamento ja esta cancelado."
+
+        # Se nao confirmou ainda, mostra os dados e pede confirmacao
+        if not confirmar:
+            return (f"Encontrei o seguinte agendamento:\n"
+                    f"- Paciente: {ag['paciente_nome']}\n"
+                    f"- Data: {data_hora.strftime('%d/%m/%Y as %H:%M')}\n"
+                    f"- Profissional: {ag.get('profissional_nome', 'N/A')}\n"
+                    f"- ID: {ag['id']}\n\n"
+                    f"Pergunte ao paciente se deseja confirmar o cancelamento. "
+                    f"Se sim, chame novamente esta ferramenta com confirmar=True.")
+
+        # Confirma o cancelamento
+        success = _cancelar_agendamento_sync(ag["id"], motivo)
+
+        if not success:
+            return "Erro ao cancelar agendamento."
+
+        return (f"Agendamento cancelado com sucesso!\n"
+                f"Consulta de {ag['paciente_nome']} em {data_hora.strftime('%d/%m/%Y as %H:%M')} "
+                f"com {ag.get('profissional_nome', 'N/A')} foi cancelada.\n"
+                f"O paciente pode agendar uma nova consulta quando desejar.")
 
     except Exception as e:
         return f"Erro ao cancelar: {str(e)}"
@@ -657,6 +753,7 @@ AGENDA_TOOLS = [
     listar_agendamentos_dia,
     remarcar_agendamento,
     cancelar_agendamento,
+    cancelar_agendamento_paciente,
     confirmar_agendamento,
     listar_profissionais_disponiveis,
     registrar_nome_paciente
