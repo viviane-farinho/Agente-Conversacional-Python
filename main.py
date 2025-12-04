@@ -1,6 +1,6 @@
 """
 Servidor Principal - Secretaria IA
-Sistema de atendimento via WhatsApp para clinicas medicas
+Sistema de atendimento via WhatsApp para empresas
 """
 import asyncio
 from datetime import datetime, timezone, date, timedelta
@@ -25,7 +25,7 @@ from src.services.database import get_db_service
 from src.services.chatwoot import chatwoot_service
 from src.services.audio import audio_service
 from src.services.rag import get_rag_service
-from src.services.agenda import get_agenda_service
+from src.services.agenda import get_agenda_service, config_obter_int
 from src.agent.graph import get_agent
 
 
@@ -114,6 +114,12 @@ class PromptPrincipalUpdate(BaseModel):
     conteudo: str
 
 
+class ConfigUpdate(BaseModel):
+    valor: str
+    tipo: str = "string"
+    descricao: Optional[str] = None
+
+
 class PipelineConversaBase(BaseModel):
     telefone: str
     nome_paciente: Optional[str] = None
@@ -182,7 +188,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="Secretaria IA",
-    description="Sistema de atendimento via WhatsApp para clinicas medicas",
+    description="Sistema de atendimento via WhatsApp para empresas",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -318,8 +324,9 @@ async def process_incoming_message(
             timestamp=datetime.now(timezone.utc)
         )
 
-        # Aguarda mensagens encavaladas
-        await asyncio.sleep(Config.MESSAGE_QUEUE_WAIT_TIME)
+        # Aguarda mensagens encavaladas (le do banco para permitir configuracao dinamica)
+        buffer_seconds = await config_obter_int("message_buffer_seconds", Config.MESSAGE_QUEUE_WAIT_TIME)
+        await asyncio.sleep(buffer_seconds)
 
         # Verifica se esta e a ultima mensagem da fila
         last_id = await db.get_last_message_id(phone)
@@ -730,6 +737,12 @@ async def admin_prompts(request: Request, username: str = Depends(verify_admin))
 async def admin_pipeline(request: Request, username: str = Depends(verify_admin)):
     """Pagina de pipeline de atendimento"""
     return templates.TemplateResponse("pipeline.html", {"request": request})
+
+
+@app.get("/admin/configuracoes", response_class=HTMLResponse)
+async def admin_configuracoes(request: Request, username: str = Depends(verify_admin)):
+    """Pagina de configuracoes do sistema"""
+    return templates.TemplateResponse("configuracoes.html", {"request": request})
 
 
 # --- API Admin ---
@@ -1241,6 +1254,69 @@ async def api_historico_conversa_pipeline(conversa_id: int, username: str = Depe
         return {"mensagens": mensagens}
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- API Configuracoes do Sistema ---
+
+@app.get("/api/admin/config")
+async def api_listar_config(username: str = Depends(verify_admin)):
+    """Lista todas as configuracoes do sistema"""
+    try:
+        db = await get_db_service()
+        agenda = await get_agenda_service(db.pool)
+        configs = await agenda.config_listar()
+
+        # Converte datetime para string
+        for c in configs:
+            if c.get('created_at'):
+                c['created_at'] = c['created_at'].isoformat()
+            if c.get('updated_at'):
+                c['updated_at'] = c['updated_at'].isoformat()
+
+        return {"configs": configs}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/config/{chave}")
+async def api_obter_config(chave: str, username: str = Depends(verify_admin)):
+    """Obtem uma configuracao especifica"""
+    try:
+        db = await get_db_service()
+        agenda = await get_agenda_service(db.pool)
+        valor = await agenda.config_obter(chave)
+        return {"chave": chave, "valor": valor}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/admin/config/{chave}")
+async def api_salvar_config(chave: str, config: ConfigUpdate, username: str = Depends(verify_admin)):
+    """Salva ou atualiza uma configuracao"""
+    try:
+        db = await get_db_service()
+        agenda = await get_agenda_service(db.pool)
+        config_id = await agenda.config_salvar(
+            chave=chave,
+            valor=config.valor,
+            tipo=config.tipo,
+            descricao=config.descricao
+        )
+        return {"id": config_id, "message": "Configuracao salva"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/config/{chave}")
+async def api_deletar_config(chave: str, username: str = Depends(verify_admin)):
+    """Remove uma configuracao (volta para o default)"""
+    try:
+        db = await get_db_service()
+        agenda = await get_agenda_service(db.pool)
+        success = await agenda.config_deletar(chave)
+        return {"message": "Configuracao restaurada para o default" if success else "Configuracao nao encontrada"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

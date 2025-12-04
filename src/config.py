@@ -50,7 +50,7 @@ class Config:
     SERVER_PORT = int(os.getenv("SERVER_PORT", "8000"))
 
     # Tempo de espera para mensagens encavaladas (segundos)
-    MESSAGE_QUEUE_WAIT_TIME = int(os.getenv("MESSAGE_QUEUE_WAIT_TIME", "3"))
+    MESSAGE_QUEUE_WAIT_TIME = int(os.getenv("MESSAGE_QUEUE_WAIT_TIME", "10"))
 
     # Histórico de mensagens
     CONTEXT_WINDOW_LENGTH = int(os.getenv("CONTEXT_WINDOW_LENGTH", "50"))
@@ -63,8 +63,8 @@ class Config:
     CHATWOOT_WEBHOOK_SECRET = os.getenv("CHATWOOT_WEBHOOK_SECRET", "")
 
 
-# Informações da clínica
-CLINIC_INFO = {
+# Informações da empresa
+EMPRESA_INFO = {
     "name": "Clínica Moreira",
     "address": "Av. das Palmeiras, 1500 - Jardim América, São Paulo - SP, CEP: 04567-000",
     "phone": "(11) 4456-7890",

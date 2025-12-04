@@ -79,6 +79,19 @@ async def agenda_init_tables() -> None:
             )
         """)
 
+        # Tabela de configuracoes do sistema
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS system_config (
+                id SERIAL PRIMARY KEY,
+                key VARCHAR(100) UNIQUE NOT NULL,
+                value TEXT NOT NULL,
+                type VARCHAR(20) DEFAULT 'string',
+                description TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        """)
+
 
 # --- Profissionais ---
 
@@ -650,6 +663,152 @@ async def agenda_deletar_prompt(nome: str) -> bool:
         return "DELETE 1" in result
 
 
+# --- Configuracoes do Sistema ---
+
+# Configuracoes padrao
+DEFAULT_CONFIGS = {
+    "message_buffer_seconds": {
+        "value": "10",
+        "type": "integer",
+        "description": "Tempo de espera (em segundos) para agrupar mensagens encavaladas"
+    },
+    "context_window_length": {
+        "value": "50",
+        "type": "integer",
+        "description": "Numero maximo de mensagens no historico de contexto"
+    }
+}
+
+
+async def config_obter(chave: str, default: str = None) -> Optional[str]:
+    """
+    Obtem uma configuracao pelo nome
+
+    Args:
+        chave: Nome da configuracao
+        default: Valor padrao se nao existir
+
+    Returns:
+        Valor da configuracao ou default
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT value FROM system_config WHERE key = $1
+        """, chave)
+
+        if row:
+            return row["value"]
+
+        # Retorna default da lista de defaults ou o parametro
+        if chave in DEFAULT_CONFIGS:
+            return DEFAULT_CONFIGS[chave]["value"]
+        return default
+
+
+async def config_obter_int(chave: str, default: int = 0) -> int:
+    """
+    Obtem uma configuracao como inteiro
+
+    Args:
+        chave: Nome da configuracao
+        default: Valor padrao se nao existir
+
+    Returns:
+        Valor da configuracao como int
+    """
+    valor = await config_obter(chave)
+    if valor is None:
+        return default
+    try:
+        return int(valor)
+    except ValueError:
+        return default
+
+
+async def config_salvar(
+    chave: str,
+    valor: str,
+    tipo: str = "string",
+    descricao: str = None
+) -> int:
+    """
+    Salva ou atualiza uma configuracao
+
+    Args:
+        chave: Nome da configuracao
+        valor: Valor da configuracao
+        tipo: Tipo (string, integer, boolean, float)
+        descricao: Descricao da configuracao
+
+    Returns:
+        ID da configuracao
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("""
+            INSERT INTO system_config (key, value, type, description)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (key) DO UPDATE
+            SET value = $2, type = $3, description = COALESCE($4, system_config.description), updated_at = NOW()
+            RETURNING id
+        """, chave, valor, tipo, descricao)
+        return result["id"]
+
+
+async def config_listar() -> List[dict]:
+    """
+    Lista todas as configuracoes
+
+    Returns:
+        Lista de configuracoes
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT id, key as chave, value as valor, type as tipo, description as descricao, created_at, updated_at
+            FROM system_config ORDER BY key
+        """)
+        configs = [dict(row) for row in rows]
+
+        # Adiciona defaults que nao estao no banco
+        chaves_existentes = {c["chave"] for c in configs}
+        for chave, dados in DEFAULT_CONFIGS.items():
+            if chave not in chaves_existentes:
+                configs.append({
+                    "id": None,
+                    "chave": chave,
+                    "valor": dados["value"],
+                    "tipo": dados["type"],
+                    "descricao": dados["description"],
+                    "is_default": True
+                })
+
+        return sorted(configs, key=lambda x: x["chave"])
+
+
+async def config_deletar(chave: str) -> bool:
+    """
+    Remove uma configuracao (volta para o default)
+
+    Args:
+        chave: Nome da configuracao
+
+    Returns:
+        True se removeu com sucesso
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        result = await conn.execute("""
+            DELETE FROM system_config WHERE key = $1
+        """, chave)
+        return "DELETE 1" in result
+
+
 # --- Compatibilidade (para transicao gradual) ---
 
 class AgendaService:
@@ -717,6 +876,22 @@ class AgendaService:
 
     async def deletar_prompt(self, nome: str) -> bool:
         return await agenda_deletar_prompt(nome)
+
+    # Configuracoes do Sistema
+    async def config_obter(self, chave: str, default: str = None) -> str:
+        return await config_obter(chave, default)
+
+    async def config_obter_int(self, chave: str, default: int = 0) -> int:
+        return await config_obter_int(chave, default)
+
+    async def config_salvar(self, chave: str, valor: str, tipo: str = "string", descricao: str = None) -> int:
+        return await config_salvar(chave, valor, tipo, descricao)
+
+    async def config_listar(self) -> List[dict]:
+        return await config_listar()
+
+    async def config_deletar(self, chave: str) -> bool:
+        return await config_deletar(chave)
 
 
 # Instancia global para compatibilidade

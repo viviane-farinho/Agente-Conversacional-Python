@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}Configuracoes - Secretaria IA{% endblock %}
+
+{% block extra_css %}
+<style>
+    .config-card {
+        transition: all 0.2s;
+    }
+
+    .config-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .config-value {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+
+    .config-default {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+
+    .config-custom {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    }
+
+    .badge-default {
+        background-color: #6c757d;
+    }
+
+    .badge-custom {
+        background-color: #0d6efd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-5">
+    <div>
+        <h2 class="fw-bold mb-1">Configuracoes do Sistema</h2>
+        <p class="text-secondary mb-0">Ajuste o comportamento do agente</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Dica:</strong> As configuracoes marcadas como "Padrao" usam o valor default do sistema.
+            Ao editar, voce cria uma configuracao personalizada que pode ser restaurada ao padrao a qualquer momento.
+        </div>
+    </div>
+</div>
+
+<!-- Lista de Configuracoes -->
+<div class="row" id="listaConfigs">
+    <!-- Configuracoes serao carregadas aqui -->
+</div>
+
+<!-- Modal Editor de Configuracao -->
+<div class="modal fade" id="modalConfig" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalConfigTitle">Editar Configuracao</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formConfig">
+                    <input type="hidden" id="configChave">
+                    <div class="mb-3">
+                        <label class="form-label">Chave</label>
+                        <input type="text" class="form-control" id="configChaveDisplay" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descricao</label>
+                        <p class="text-muted small" id="configDescricao">-</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" id="configTipo">
+                            <option value="string">Texto</option>
+                            <option value="integer">Numero inteiro</option>
+                            <option value="float">Numero decimal</option>
+                            <option value="boolean">Booleano (true/false)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Valor *</label>
+                        <input type="text" class="form-control config-value" id="configValor" required>
+                        <small class="text-muted" id="configValorHelp"></small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning d-none" id="btnRestaurarConfig" onclick="restaurarConfig()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar Padrao
+                </button>
+                <button type="button" class="btn btn-primary" onclick="salvarConfig()">
+                    <i class="bi bi-save me-1"></i> Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let configs = [];
+
+    // Mapeamento de descricoes amigaveis
+    const configLabels = {
+        'message_buffer_seconds': {
+            label: 'Tempo de Buffer (segundos)',
+            icon: 'bi-clock',
+            help: 'Tempo de espera antes de processar mensagens (para agrupar mensagens seguidas)'
+        },
+        'context_window_length': {
+            label: 'Tamanho do Contexto',
+            icon: 'bi-chat-dots',
+            help: 'Numero maximo de mensagens mantidas no historico'
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        carregarConfigs();
+    });
+
+    async function carregarConfigs() {
+        try {
+            const data = await apiCall('/api/admin/config');
+            configs = data.configs || [];
+            renderizarConfigs();
+        } catch (error) {
+            showToast('Erro ao carregar configuracoes: ' + error.message, 'danger');
+        }
+    }
+
+    function renderizarConfigs() {
+        const container = document.getElementById('listaConfigs');
+
+        if (configs.length === 0) {
+            container.innerHTML = `
+            <div class="col-12">
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-gear fs-1"></i>
+                    <p class="mt-2">Nenhuma configuracao disponivel</p>
+                </div>
+            </div>
+        `;
+            return;
+        }
+
+        container.innerHTML = configs.map(c => {
+            const info = configLabels[c.chave] || { label: c.chave, icon: 'bi-gear', help: '' };
+            const isDefault = c.is_default || !c.id;
+            const cardClass = isDefault ? 'config-default' : 'config-custom';
+            const badgeClass = isDefault ? 'badge-default' : 'badge-custom';
+            const badgeText = isDefault ? 'Padrao' : 'Personalizado';
+
+            return `
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card config-card h-100 border-0 ${cardClass}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="d-flex align-items-center">
+                                <i class="${info.icon} fs-4 text-primary me-2"></i>
+                                <h6 class="mb-0 fw-bold">${info.label}</h6>
+                            </div>
+                            <span class="badge ${badgeClass}">${badgeText}</span>
+                        </div>
+                        <div class="mb-3">
+                            <span class="config-value text-primary">${c.valor}</span>
+                            <span class="text-muted ms-1">${c.tipo === 'integer' ? 'segundos' : ''}</span>
+                        </div>
+                        <p class="text-muted small mb-3">${c.descricao || info.help || 'Sem descricao'}</p>
+                        <button class="btn btn-sm btn-outline-primary" onclick="editarConfig('${c.chave}')">
+                            <i class="bi bi-pencil me-1"></i> Editar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        }).join('');
+    }
+
+    async function editarConfig(chave) {
+        const config = configs.find(c => c.chave === chave);
+        if (!config) return;
+
+        const info = configLabels[chave] || { label: chave, help: '' };
+
+        document.getElementById('modalConfigTitle').textContent = 'Editar: ' + info.label;
+        document.getElementById('configChave').value = config.chave;
+        document.getElementById('configChaveDisplay').value = config.chave;
+        document.getElementById('configDescricao').textContent = config.descricao || info.help || '-';
+        document.getElementById('configTipo').value = config.tipo || 'string';
+        document.getElementById('configValor').value = config.valor;
+
+        // Mostra/esconde botao de restaurar
+        const btnRestaurar = document.getElementById('btnRestaurarConfig');
+        if (config.is_default || !config.id) {
+            btnRestaurar.classList.add('d-none');
+        } else {
+            btnRestaurar.classList.remove('d-none');
+        }
+
+        // Ajusta help text conforme tipo
+        atualizarHelpText();
+
+        new bootstrap.Modal(document.getElementById('modalConfig')).show();
+    }
+
+    function atualizarHelpText() {
+        const tipo = document.getElementById('configTipo').value;
+        const help = document.getElementById('configValorHelp');
+
+        switch (tipo) {
+            case 'integer':
+                help.textContent = 'Digite apenas numeros inteiros (ex: 10, 50, 100)';
+                break;
+            case 'float':
+                help.textContent = 'Digite numeros decimais (ex: 1.5, 0.8)';
+                break;
+            case 'boolean':
+                help.textContent = 'Digite "true" ou "false"';
+                break;
+            default:
+                help.textContent = '';
+        }
+    }
+
+    document.getElementById('configTipo').addEventListener('change', atualizarHelpText);
+
+    async function salvarConfig() {
+        const chave = document.getElementById('configChave').value;
+        const valor = document.getElementById('configValor').value;
+        const tipo = document.getElementById('configTipo').value;
+
+        // Validacao basica
+        if (tipo === 'integer' && !/^\d+$/.test(valor)) {
+            showToast('O valor deve ser um numero inteiro', 'danger');
+            return;
+        }
+        if (tipo === 'float' && !/^\d+\.?\d*$/.test(valor)) {
+            showToast('O valor deve ser um numero', 'danger');
+            return;
+        }
+        if (tipo === 'boolean' && !['true', 'false'].includes(valor.toLowerCase())) {
+            showToast('O valor deve ser "true" ou "false"', 'danger');
+            return;
+        }
+
+        try {
+            await apiCall(`/api/admin/config/${chave}`, 'PUT', {
+                valor: valor,
+                tipo: tipo
+            });
+            showToast('Configuracao salva com sucesso!');
+            bootstrap.Modal.getInstance(document.getElementById('modalConfig')).hide();
+            carregarConfigs();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+
+    async function restaurarConfig() {
+        const chave = document.getElementById('configChave').value;
+        if (!confirm('Deseja restaurar esta configuracao para o valor padrao?')) return;
+
+        try {
+            await apiCall(`/api/admin/config/${chave}`, 'DELETE');
+            showToast('Configuracao restaurada para o padrao!');
+            bootstrap.Modal.getInstance(document.getElementById('modalConfig')).hide();
+            carregarConfigs();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+</script>
+{% endblock %}

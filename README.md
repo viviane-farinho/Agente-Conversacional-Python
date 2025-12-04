@@ -175,13 +175,13 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ## Personalização
 
-### Alterar informações da clínica
+### Alterar informações da empresa
 
 Edite o arquivo `src/config.py`:
 
 ```python
-CLINIC_INFO = {
-    "name": "Sua Clínica",
+EMPRESA_INFO = {
+    "name": "Sua Empresa",
     "address": "Seu endereço",
     # ...
 }

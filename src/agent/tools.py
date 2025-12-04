@@ -367,6 +367,137 @@ def refletir(
 
 # --- Ferramentas de RAG (Base de Conhecimento) ---
 
+def _rewrite_query(pergunta: str) -> str:
+    """
+    Query Rewriting: Expande perguntas vagas para melhorar a busca.
+    Usa um LLM para reformular a pergunta de forma mais específica.
+    """
+    import requests
+    from src.config import Config
+
+    # Perguntas curtas (até 5 palavras) precisam ser expandidas
+    if len(pergunta.split()) <= 5:
+        try:
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {Config.OPENAI_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4o-mini",
+                    "temperature": 0,
+                    "max_tokens": 150,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": """Você é um assistente que reformula perguntas de pacientes para busca em uma clínica médica/odontológica.
+
+REGRA IMPORTANTE: Mantenha SEMPRE os termos específicos da pergunta original (ex: clareamento, limpeza, canal, etc.)
+
+Sua tarefa: Expandir a pergunta para incluir contexto sobre preço, disponibilidade e informações do serviço.
+
+Exemplos:
+- "vocês fazem clareamento?" → "A clínica oferece clareamento dental? Qual o preço do clareamento?"
+- "quanto custa?" → "Quais são os preços das consultas e procedimentos da clínica?"
+- "tem dentista?" → "Quais dentistas e especialidades odontológicas estão disponíveis na clínica?"
+- "fazem limpeza?" → "A clínica faz limpeza dental? Qual o valor da limpeza?"
+- "aceita plano?" → "Quais convênios e planos de saúde são aceitos pela clínica?"
+- "onde fica?" → "Qual é o endereço e localização da clínica?"
+- "vocês atendem?" → "Quais são os horários de funcionamento da clínica?"
+- "faz canal?" → "A clínica realiza tratamento de canal? Qual o preço?"
+
+Retorne APENAS a pergunta reformulada, sem explicações."""
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Reformule esta pergunta: {pergunta}"
+                        }
+                    ]
+                },
+                timeout=10.0
+            )
+            response.raise_for_status()
+            data = response.json()
+            rewritten = data["choices"][0]["message"]["content"].strip()
+            print(f"[RAG] Query rewriting: '{pergunta}' → '{rewritten}'")
+            return rewritten
+        except Exception as e:
+            print(f"[RAG] Erro no query rewriting: {e}")
+            return pergunta
+
+    return pergunta
+
+
+def _grade_documents(pergunta: str, documentos: list) -> list:
+    """
+    Grading de Documentos: Avalia se os documentos retornados são relevantes.
+    Remove documentos irrelevantes para evitar respostas erradas.
+    """
+    import requests
+    from src.config import Config
+
+    if not documentos:
+        return []
+
+    # Prepara o contexto dos documentos
+    docs_text = ""
+    for i, doc in enumerate(documentos):
+        docs_text += f"\n[Documento {i+1}]\nTítulo: {doc['titulo']}\nConteúdo: {doc['conteudo'][:500]}...\n"
+
+    try:
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {Config.OPENAI_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "gpt-4o-mini",
+                "temperature": 0,
+                "max_tokens": 100,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": """Você é um avaliador que determina se documentos são relevantes para responder uma pergunta.
+
+Analise cada documento e retorne APENAS os números dos documentos relevantes, separados por vírgula.
+Se nenhum for relevante, retorne "nenhum".
+
+Exemplo de resposta: "1,3" (se docs 1 e 3 forem relevantes)
+Exemplo de resposta: "nenhum" (se nenhum for relevante)"""
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Pergunta do paciente: {pergunta}\n\nDocumentos encontrados:{docs_text}\n\nQuais documentos são relevantes para responder esta pergunta?"
+                    }
+                ]
+            },
+            timeout=10.0
+        )
+        response.raise_for_status()
+        data = response.json()
+        result = data["choices"][0]["message"]["content"].strip().lower()
+
+        if result == "nenhum":
+            print(f"[RAG] Grading: Nenhum documento relevante para '{pergunta}'")
+            return []
+
+        # Parse dos índices relevantes
+        try:
+            indices = [int(x.strip()) - 1 for x in result.split(",")]
+            relevant_docs = [documentos[i] for i in indices if 0 <= i < len(documentos)]
+            print(f"[RAG] Grading: {len(relevant_docs)}/{len(documentos)} documentos relevantes")
+            return relevant_docs
+        except:
+            # Se não conseguir parsear, retorna todos (fallback)
+            return documentos
+
+    except Exception as e:
+        print(f"[RAG] Erro no grading: {e}")
+        return documentos  # Fallback: retorna todos
+
+
 @tool
 def buscar_informacao_empresa(
     pergunta: Annotated[str, "Pergunta ou termo de busca sobre a empresa/clínica"],
@@ -385,25 +516,45 @@ def buscar_informacao_empresa(
     - Dúvidas gerais sobre a clínica
 
     Esta ferramenta busca na base de dados interna da empresa.
+    Inclui Query Rewriting (expande perguntas vagas) e Grading (filtra docs irrelevantes).
     """
     try:
         # Importa o serviço RAG
         from src.services.rag import rag_service
 
-        # Usa o método síncrono que não depende do asyncio
-        # Threshold baixo (0.3) para capturar variações na forma de perguntar
+        # 1. Query Rewriting: expande perguntas vagas
+        query_expandida = _rewrite_query(pergunta)
+
+        # 2. Busca na base de conhecimento
         results = rag_service.search_sync(
-            query=pergunta,
-            limit=3,
+            query=query_expandida,
+            limit=5,  # Busca mais documentos para depois filtrar
             categoria=categoria,
-            similarity_threshold=0.3
+            similarity_threshold=0.25  # Threshold mais baixo, o grading filtra depois
         )
+
+        # 2.1 Fallback: se não encontrou com categoria, busca sem categoria
+        if not results and categoria:
+            print(f"[RAG] Fallback: buscando sem categoria (original: {categoria})")
+            results = rag_service.search_sync(
+                query=query_expandida,
+                limit=5,
+                categoria=None,  # Busca em todas as categorias
+                similarity_threshold=0.25
+            )
 
         if not results:
             return "Não encontrei informações específicas sobre isso na base de conhecimento. Sugiro escalar para um atendente humano se a dúvida persistir."
 
+        # 3. Grading: filtra documentos irrelevantes
+        relevant_docs = _grade_documents(pergunta, results)
+
+        if not relevant_docs:
+            return "Encontrei alguns documentos, mas nenhum parece responder diretamente sua pergunta. Sugiro escalar para um atendente humano para uma resposta mais precisa."
+
+        # 4. Formata resposta
         response = "Informações encontradas:\n\n"
-        for doc in results:
+        for doc in relevant_docs[:3]:  # Máximo 3 documentos relevantes
             response += f"**{doc['titulo']}** (categoria: {doc['categoria']})\n"
             response += f"{doc['conteudo']}\n\n"
 

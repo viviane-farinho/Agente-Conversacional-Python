@@ -702,7 +702,7 @@ def confirmar_agendamento(
 def listar_profissionais_disponiveis() -> str:
     """
     Lista todos os profissionais disponiveis para agendamento.
-    Use para informar ao paciente quais profissionais atendem na clinica.
+    Use para informar ao paciente quais profissionais atendem na empresa.
     """
     try:
         profissionais = _listar_profissionais_sync()
