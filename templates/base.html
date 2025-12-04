@@ -41,9 +41,13 @@
                     <i class="bi bi-people"></i>
                     <span>Profissionais</span>
                 </a>
+                <a href="/admin/agentes" class="nav-link {% if 'agentes' in request.url.path %}active{% endif %}">
+                    <i class="bi bi-robot"></i>
+                    <span>Meus Agentes</span>
+                </a>
                 <a href="/admin/prompts" class="nav-link {% if 'prompts' in request.url.path %}active{% endif %}">
                     <i class="bi bi-chat-square-text"></i>
-                    <span>Prompts</span>
+                    <span>Prompts (Legado)</span>
                 </a>
                 <a href="/admin/rag" class="nav-link {% if request.url.path == '/admin/rag' %}active{% endif %}">
                     <i class="bi bi-database"></i>

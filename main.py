@@ -743,6 +743,12 @@ async def admin_prompts(request: Request, username: str = Depends(verify_admin))
     return templates.TemplateResponse("prompts.html", {"request": request})
 
 
+@app.get("/admin/agentes", response_class=HTMLResponse)
+async def admin_agentes(request: Request, username: str = Depends(verify_admin)):
+    """Pagina de gerenciamento de agentes"""
+    return templates.TemplateResponse("agentes.html", {"request": request})
+
+
 @app.get("/admin/pipeline", response_class=HTMLResponse)
 async def admin_pipeline(request: Request, username: str = Depends(verify_admin)):
     """Pagina de pipeline de atendimento"""

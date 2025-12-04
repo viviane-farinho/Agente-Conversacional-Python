@@ -1,0 +1,519 @@
+{% extends "base.html" %}
+
+{% block title %}Meus Agentes - Secretaria IA{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Scoped styles for this page only to match the "Neon Glass" look */
+    :root {
+        --neon-purple: #d946ef;
+        --neon-green: #22c55e;
+        --neon-blue: #3b82f6;
+        --neon-cyan: #06b6d4;
+        --glass-bg: rgba(255, 255, 255, 0.03);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-highlight: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Deep Space Background with Nebula Effects */
+    .agents-dashboard {
+        background-color: #020204;
+        background-image:
+            radial-gradient(circle at 20% 30%, rgba(217, 70, 239, 0.4) 0%, transparent 60%),
+            radial-gradient(circle at 80% 20%, rgba(34, 197, 94, 0.3) 0%, transparent 60%),
+            radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.4) 0%, transparent 60%),
+            radial-gradient(circle at 20% 80%, rgba(6, 182, 212, 0.3) 0%, transparent 60%);
+        min-height: 100vh;
+        color: #ffffff;
+        padding: 2rem;
+        border-radius: 24px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Premium Glass Card - Base Style */
+    .glass-card {
+        backdrop-filter: blur(40px);
+        -webkit-backdrop-filter: blur(40px);
+        border-radius: 28px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-top: 1px solid rgba(255, 255, 255, 0.4);
+        /* Top light effect */
+        border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    }
+
+    /* Supervisor Card - Purple Nebula Theme */
+    .card-supervisor {
+        background: linear-gradient(180deg, rgba(217, 70, 239, 0.15) 0%, rgba(10, 10, 15, 0.8) 100%);
+        box-shadow: 0 0 40px rgba(217, 70, 239, 0.1), inset 0 0 20px rgba(217, 70, 239, 0.05);
+    }
+
+    .card-supervisor:hover {
+        border-color: rgba(217, 70, 239, 0.6);
+        border-top-color: rgba(217, 70, 239, 0.8);
+        box-shadow: 0 0 60px rgba(217, 70, 239, 0.25), inset 0 0 30px rgba(217, 70, 239, 0.1);
+        transform: translateY(-2px);
+    }
+
+    /* Glowing Brain Orb Effect */
+    .card-supervisor .icon-box {
+        background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8) 0%, rgba(217, 70, 239, 0.8) 20%, rgba(217, 70, 239, 0.2) 60%, transparent 100%);
+        border: 1px solid rgba(217, 70, 239, 0.4);
+        box-shadow:
+            0 0 30px rgba(217, 70, 239, 0.6),
+            inset 0 0 20px rgba(217, 70, 239, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .card-supervisor .icon-box::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
+        animation: pulse-glow 3s infinite ease-in-out;
+    }
+
+    @keyframes pulse-glow {
+        0% {
+            transform: scale(0.8);
+            opacity: 0.5;
+        }
+
+        50% {
+            transform: scale(1.1);
+            opacity: 0.8;
+        }
+
+        100% {
+            transform: scale(0.8);
+            opacity: 0.5;
+        }
+    }
+
+    /* Vendas Card - Green Theme */
+    .card-vendas {
+        background: linear-gradient(180deg, rgba(34, 197, 94, 0.15) 0%, rgba(10, 10, 15, 0.8) 100%);
+        box-shadow: 0 0 30px rgba(34, 197, 94, 0.1);
+    }
+
+    .card-vendas:hover {
+        border-color: rgba(34, 197, 94, 0.6);
+        border-top-color: rgba(34, 197, 94, 0.8);
+        box-shadow: 0 0 50px rgba(34, 197, 94, 0.25);
+        transform: translateY(-2px);
+    }
+
+    .card-vendas .icon-box {
+        background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.6) 0%, rgba(34, 197, 94, 0.6) 30%, rgba(34, 197, 94, 0.1) 70%);
+        border: 1px solid rgba(34, 197, 94, 0.5);
+        box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .card-vendas .icon-box::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
+        animation: pulse-glow 3s infinite ease-in-out;
+        animation-delay: 0.5s;
+    }
+
+    /* Suporte Card - Blue Theme */
+    .card-suporte {
+        background: linear-gradient(180deg, rgba(59, 130, 246, 0.15) 0%, rgba(10, 10, 15, 0.8) 100%);
+        box-shadow: 0 0 30px rgba(59, 130, 246, 0.1);
+    }
+
+    .card-suporte:hover {
+        border-color: rgba(59, 130, 246, 0.6);
+        border-top-color: rgba(59, 130, 246, 0.8);
+        box-shadow: 0 0 50px rgba(59, 130, 246, 0.25);
+        transform: translateY(-2px);
+    }
+
+    .card-suporte .icon-box {
+        background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.6) 0%, rgba(59, 130, 246, 0.6) 30%, rgba(59, 130, 246, 0.1) 70%);
+        border: 1px solid rgba(59, 130, 246, 0.5);
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .card-suporte .icon-box::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
+        animation: pulse-glow 3s infinite ease-in-out;
+        animation-delay: 1s;
+    }
+
+    /* Agendamento Card - Cyan Theme */
+    .card-agendamento {
+        background: linear-gradient(180deg, rgba(6, 182, 212, 0.15) 0%, rgba(10, 10, 15, 0.8) 100%);
+        box-shadow: 0 0 30px rgba(6, 182, 212, 0.1);
+    }
+
+    .card-agendamento:hover {
+        border-color: rgba(6, 182, 212, 0.6);
+        border-top-color: rgba(6, 182, 212, 0.8);
+        box-shadow: 0 0 50px rgba(6, 182, 212, 0.25);
+        transform: translateY(-2px);
+    }
+
+    .card-agendamento .icon-box {
+        background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.6) 0%, rgba(6, 182, 212, 0.6) 30%, rgba(6, 182, 212, 0.1) 70%);
+        border: 1px solid rgba(6, 182, 212, 0.5);
+        box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .card-agendamento .icon-box::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
+        animation: pulse-glow 3s infinite ease-in-out;
+        animation-delay: 1.5s;
+    }
+
+    /* Add New Agent Card */
+    .card-new {
+        background: rgba(255, 255, 255, 0.03);
+        border: 2px dashed rgba(255, 255, 255, 0.3);
+        border-radius: 28px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .card-new:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.8);
+        box-shadow: 0 0 40px rgba(255, 255, 255, 0.15);
+        transform: translateY(-4px);
+    }
+
+    .card-new .icon-box {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+    }
+
+    /* UI Elements */
+    .status-badge {
+        background: rgba(0, 0, 0, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(4px);
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        box-shadow: 0 0 8px currentColor;
+    }
+
+    .btn-glass {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: white;
+        border-radius: 14px;
+        padding: 10px 24px;
+        font-weight: 600;
+        transition: all 0.2s;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+    }
+
+    .btn-glass:hover {
+        background: rgba(255, 255, 255, 0.25);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 0 25px rgba(255, 255, 255, 0.2);
+    }
+
+    /* Text Gradients */
+    .text-gradient-purple {
+        background: linear-gradient(to right, #fff, #d946ef);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="agents-dashboard pt-5 pb-2 px-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="fw-bold mb-1 text-white fs-4">Meus Agentes</h2>
+            <p class="text-white-50 mb-0 small">Gerencie sua equipe de inteligência artificial</p>
+        </div>
+    </div>
+
+    <!-- Top Row: Supervisor + Vendas -->
+    <div class="row g-3 mb-3">
+        <!-- Supervisor Section (Wider) -->
+        <div class="col-md-8">
+            <div class="glass-card card-supervisor h-100 p-3 d-flex flex-column justify-content-center">
+                <div class="row align-items-center">
+                    <div class="col-md-7 d-flex gap-3 align-items-center">
+                        <div class="position-relative">
+                            <!-- Glowing Brain Orb Container -->
+                            <div class="icon-box rounded-circle d-flex align-items-center justify-content-center"
+                                style="width: 90px; height: 90px;">
+                                <!-- Fallback to CPU/Brain icon if image fails -->
+                                <i class="bi bi-cpu text-white"
+                                    style="font-size: 2.8rem; filter: drop-shadow(0 0 15px #bd34fe); z-index: 2;"></i>
+
+                                <!-- Neural Network CSS Effect -->
+                                <div class="position-absolute w-100 h-100 rounded-circle"
+                                    style="background: radial-gradient(circle at 30% 30%, rgba(217, 70, 239, 0.4), transparent 70%); z-index: 1;">
+                                </div>
+                            </div>
+                            <div class="position-absolute bottom-0 end-0">
+                                <span class="status-badge text-white" style="padding: 4px 8px; font-size: 0.75rem;">
+                                    <span class="status-dot"
+                                        style="color: #30d158; width: 6px; height: 6px;"></span>Online
+                                </span>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="fw-bold mb-1 text-white fs-4">Supervisor (Cérebro)</h3>
+                            <p class="text-white-50 mb-2 small" style="line-height: 1.4;">
+                                Orquestra o atendimento e decide qual especialista chamar com base na intenção do
+                                cliente.
+                            </p>
+                            <div class="d-flex gap-3">
+                                <div class="d-flex align-items-center gap-2 text-white-50 small">
+                                    <i class="bi bi-shuffle" style="color: #bd34fe;"></i>
+                                    <span class="fw-medium text-white">1.2k</span> roteamentos
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5 d-flex justify-content-end align-items-center gap-2 mt-3 mt-md-0">
+                        <button class="btn btn-glass btn-sm" onclick="configurarSupervisor()">
+                            <i class="bi bi-gear me-2"></i>Configurar
+                        </button>
+                        <button class="btn btn-glass btn-sm" onclick="verLogs()">
+                            <i class="bi bi-journal-text me-2"></i>Logs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vendas (Side) -->
+        <div class="col-md-4">
+            <div class="glass-card card-vendas h-100 p-3 d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="position-relative">
+                        <div class="icon-box rounded-circle d-flex align-items-center justify-content-center"
+                            style="width: 56px; height: 56px;">
+                            <i class="bi bi-currency-exchange text-white"
+                                style="font-size: 1.6rem; filter: drop-shadow(0 0 10px #22c55e); z-index: 2;"></i>
+                            <div class="position-absolute w-100 h-100 rounded-circle"
+                                style="background: radial-gradient(circle at 30% 30%, rgba(34, 197, 94, 0.4), transparent 70%); z-index: 1;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" checked onchange="toggleAgente('vendas')"
+                            style="background-color: #22c55e; border-color: #22c55e;">
+                    </div>
+                </div>
+
+                <h4 class="fw-bold mb-1 text-white fs-5">Vendas</h4>
+                <div class="mb-2">
+                    <span class="status-badge text-white-50" style="padding: 4px 8px; font-size: 0.75rem;">
+                        <span class="status-dot" style="color: #22c55e; width: 6px; height: 6px;"></span>Online
+                    </span>
+                </div>
+                <p class="text-white-50 small mb-3 flex-grow-1" style="font-size: 0.85rem;">Especialista em conversão e
+                    ofertas.</p>
+
+                <div class="d-flex align-items-end justify-content-between">
+                    <div>
+                        <h3 class="fw-bold mb-0 text-white fs-4">15%</h3>
+                        <span class="text-white-50 small" style="font-size: 0.75rem;">conversão</span>
+                    </div>
+                    <button class="btn btn-glass btn-sm" onclick="configurarAgente('vendas')">Configurar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Row: Suporte, Agendamento, Novo -->
+    <div class="row g-3">
+        <!-- Suporte -->
+        <div class="col-md-4">
+            <div class="glass-card card-suporte h-100 p-3 d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="position-relative">
+                        <div class="icon-box rounded-circle d-flex align-items-center justify-content-center"
+                            style="width: 56px; height: 56px;">
+                            <i class="bi bi-tools text-white"
+                                style="font-size: 1.4rem; filter: drop-shadow(0 0 10px #3b82f6); z-index: 2;"></i>
+                            <div class="position-absolute w-100 h-100 rounded-circle"
+                                style="background: radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.4), transparent 70%); z-index: 1;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" checked onchange="toggleAgente('suporte')"
+                            style="background-color: #3b82f6; border-color: #3b82f6;">
+                    </div>
+                </div>
+
+                <h4 class="fw-bold mb-1 text-white fs-5">Suporte</h4>
+                <div class="mb-2">
+                    <span class="status-badge text-white-50" style="padding: 4px 8px; font-size: 0.75rem;">
+                        <span class="status-dot" style="color: #3b82f6; width: 6px; height: 6px;"></span>Online
+                    </span>
+                </div>
+                <p class="text-white-50 small mb-3 flex-grow-1" style="font-size: 0.85rem;">Tira dúvidas técnicas e
+                    resolve problemas.</p>
+
+                <div class="d-flex align-items-end justify-content-between">
+                    <div>
+                        <h3 class="fw-bold mb-0 text-white fs-4">4.8</h3>
+                        <span class="text-white-50 small" style="font-size: 0.75rem;">satisfação</span>
+                    </div>
+                    <button class="btn btn-glass btn-sm" onclick="configurarAgente('suporte')">Configurar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agendamento -->
+        <div class="col-md-4">
+            <div class="glass-card card-agendamento h-100 p-3 d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="position-relative">
+                        <div class="icon-box rounded-circle d-flex align-items-center justify-content-center"
+                            style="width: 56px; height: 56px;">
+                            <i class="bi bi-calendar-check text-white"
+                                style="font-size: 1.4rem; filter: drop-shadow(0 0 10px #06b6d4); z-index: 2;"></i>
+                            <div class="position-absolute w-100 h-100 rounded-circle"
+                                style="background: radial-gradient(circle at 30% 30%, rgba(6, 182, 212, 0.4), transparent 70%); z-index: 1;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" checked onchange="toggleAgente('agendamento')"
+                            style="background-color: #06b6d4; border-color: #06b6d4;">
+                    </div>
+                </div>
+
+                <h4 class="fw-bold mb-1 text-white fs-5">Agendamento</h4>
+                <div class="mb-2">
+                    <span class="status-badge text-white-50" style="padding: 4px 8px; font-size: 0.75rem;">
+                        <span class="status-dot" style="color: #06b6d4; width: 6px; height: 6px;"></span>Online
+                    </span>
+                </div>
+                <p class="text-white-50 small mb-3 flex-grow-1" style="font-size: 0.85rem;">Gerencia marcação de
+                    consultas.</p>
+
+                <div class="d-flex align-items-end justify-content-between">
+                    <div>
+                        <h3 class="fw-bold mb-0 text-white fs-4">12</h3>
+                        <span class="text-white-50 small" style="font-size: 0.75rem;">hoje</span>
+                    </div>
+                    <button class="btn btn-glass btn-sm" onclick="configurarAgente('agendamento')">Configurar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add New Agent -->
+        <div class="col-md-4">
+            <div class="card-new h-100 p-3 d-flex flex-column align-items-center justify-content-center"
+                onclick="abrirModalNovoAgente()">
+                <div class="icon-box rounded-circle d-flex align-items-center justify-content-center mb-2"
+                    style="width: 56px; height: 56px; background: rgba(255, 255, 255, 0.1);">
+                    <i class="bi bi-plus-lg text-white" style="font-size: 1.6rem;"></i>
+                </div>
+                <h5 class="fw-bold mb-0 text-white fs-5">Novo Agente</h5>
+                <p class="text-white-50 small mb-0" style="font-size: 0.85rem;">Adicionar especialista</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Configuração (Placeholder) -->
+<div class="modal fade" id="configModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #333; color: white;">
+            <div class="modal-header border-bottom border-secondary">
+                <h5 class="modal-title fw-bold">Configurar Agente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-center text-secondary py-5">
+                    <i class="bi bi-cone-striped fs-1 d-block mb-3"></i>
+                    Funcionalidade em desenvolvimento.<br>
+                    Em breve você poderá editar prompts e tools aqui.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleAgente(nome) {
+        // Mock toggle
+        console.log(`Toggled ${nome}`);
+    }
+
+    function configurarSupervisor() {
+        const modal = new bootstrap.Modal(document.getElementById('configModal'));
+        modal.show();
+    }
+
+    function configurarAgente(nome) {
+        const modal = new bootstrap.Modal(document.getElementById('configModal'));
+        modal.show();
+    }
+
+    function verLogs() {
+        alert('Logs em breve');
+    }
+
+    function abrirModalNovoAgente() {
+        const modal = new bootstrap.Modal(document.getElementById('configModal'));
+        modal.show();
+    }
+</script>
+{% endblock %}
