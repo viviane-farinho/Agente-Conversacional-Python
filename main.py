@@ -324,6 +324,13 @@ async def process_incoming_message(
             timestamp=datetime.now(timezone.utc)
         )
 
+        # Marca como lida (visualizada) e ativa "digitando" para feedback imediato
+        try:
+            await chatwoot_service.mark_as_read(account_id, conversation_id)
+            await chatwoot_service.set_typing_status(account_id, conversation_id, "on")
+        except Exception as e:
+            print(f"Aviso: Nao foi possivel ativar typing status: {e}")
+
         # Aguarda mensagens encavaladas (le do banco para permitir configuracao dinamica)
         buffer_seconds = await config_obter_int("message_buffer_seconds", Config.MESSAGE_QUEUE_WAIT_TIME)
         await asyncio.sleep(buffer_seconds)
