@@ -468,52 +468,241 @@
             </div>
         </div>
     </div>
-</div>
+    <!-- Removed premature closing div -->
 
-<!-- Modal Configuração (Placeholder) -->
-<div class="modal fade" id="configModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #333; color: white;">
-            <div class="modal-header border-bottom border-secondary">
-                <h5 class="modal-title fw-bold">Configurar Agente</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    <!-- Calendar Section -->
+    <div class="calendar-section mt-4 px-4 pb-5">
+        <div class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="icon-box rounded-circle d-flex align-items-center justify-content-center"
+                        style="width: 48px; height: 48px; background: rgba(217, 70, 239, 0.1); border: 1px solid rgba(217, 70, 239, 0.3);">
+                        <i class="bi bi-calendar-event text-white"
+                            style="font-size: 1.5rem; filter: drop-shadow(0 0 10px #bd34fe);"></i>
+                    </div>
+                    <div>
+                        <h3 class="fw-bold mb-0 text-white">Agenda Inteligente</h3>
+                        <p class="text-white-50 mb-0 small">Próximos agendamentos e tarefas</p>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-glass btn-sm"><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-glass btn-sm"><i class="bi bi-chevron-right"></i></button>
+                </div>
             </div>
-            <div class="modal-body">
-                <p class="text-center text-secondary py-5">
-                    <i class="bi bi-cone-striped fs-1 d-block mb-3"></i>
-                    Funcionalidade em desenvolvimento.<br>
-                    Em breve você poderá editar prompts e tools aqui.
-                </p>
+
+            <!-- Calendar Grid -->
+            <div class="calendar-grid">
+                <!-- Weekdays -->
+                <div class="d-grid"
+                    style="grid-template-columns: repeat(7, 1fr); gap: 10px; text-align: center; margin-bottom: 15px;">
+                    <div class="text-white-50 small fw-bold">DOM</div>
+                    <div class="text-white-50 small fw-bold">SEG</div>
+                    <div class="text-white-50 small fw-bold">TER</div>
+                    <div class="text-white-50 small fw-bold">QUA</div>
+                    <div class="text-white-50 small fw-bold">QUI</div>
+                    <div class="text-white-50 small fw-bold">SEX</div>
+                    <div class="text-white-50 small fw-bold">SAB</div>
+                </div>
+
+                <!-- Days -->
+                <div class="d-grid" style="grid-template-columns: repeat(7, 1fr); gap: 10px;">
+                    <!-- Previous Month -->
+                    <div class="calendar-day disabled p-3 rounded-3 text-white-50"
+                        style="background: rgba(255,255,255,0.02);">29</div>
+                    <div class="calendar-day disabled p-3 rounded-3 text-white-50"
+                        style="background: rgba(255,255,255,0.02);">30</div>
+
+                    <!-- Current Month -->
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">1</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">2</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                        3
+                        <div class="position-absolute bottom-0 start-50 translate-middle-x mb-2 d-flex gap-1">
+                            <div class="rounded-circle"
+                                style="width: 4px; height: 4px; background: #22c55e; box-shadow: 0 0 5px #22c55e;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative active-day"
+                        style="background: linear-gradient(135deg, rgba(217, 70, 239, 0.2), rgba(217, 70, 239, 0.05)); border: 1px solid rgba(217, 70, 239, 0.5); box-shadow: 0 0 15px rgba(217, 70, 239, 0.2);">
+                        4
+                        <div class="position-absolute top-0 end-0 mt-1 me-2 text-white-50" style="font-size: 0.6rem;">
+                            HOJE
+                        </div>
+                        <div class="mt-2">
+                            <div class="p-1 rounded mb-1 text-truncate"
+                                style="background: rgba(34, 197, 94, 0.2); font-size: 0.7rem; border-left: 2px solid #22c55e;">
+                                <span class="text-white">R$ 5.000</span>
+                            </div>
+                            <div class="p-1 rounded text-truncate"
+                                style="background: rgba(6, 182, 212, 0.2); font-size: 0.7rem; border-left: 2px solid #06b6d4;">
+                                <span class="text-white">Consulta Dr. Silva</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">5</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">6</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">7</div>
+
+                    <!-- Row 2 -->
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">8</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                        9
+                        <div class="position-absolute bottom-0 start-50 translate-middle-x mb-2 d-flex gap-1">
+                            <div class="rounded-circle"
+                                style="width: 4px; height: 4px; background: #3b82f6; box-shadow: 0 0 5px #3b82f6;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">10</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">11</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">12</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">13</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">14</div>
+
+                    <!-- Row 3 -->
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">15</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">16</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">17</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                        18
+                        <div class="mt-2">
+                            <div class="p-1 rounded text-truncate"
+                                style="background: rgba(6, 182, 212, 0.2); font-size: 0.7rem; border-left: 2px solid #06b6d4;">
+                                <span class="text-white">Reunião Equipe</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">19</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">20</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">21</div>
+
+                    <!-- Row 4 -->
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">22</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">23</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">24</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                        25
+                        <div class="mt-2">
+                            <div class="p-1 rounded mb-1 text-truncate"
+                                style="background: rgba(34, 197, 94, 0.2); font-size: 0.7rem; border-left: 2px solid #22c55e;">
+                                <span class="text-white">R$ 12.500</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">26</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">27</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">28</div>
+
+                    <!-- Row 5 -->
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">29</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">30</div>
+                    <div class="calendar-day p-3 rounded-3 text-white position-relative"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">31</div>
+
+                    <!-- Next Month Preview -->
+                    <div class="calendar-day disabled p-3 rounded-3 text-white-50"
+                        style="background: rgba(255,255,255,0.02);">1</div>
+                    <div class="calendar-day disabled p-3 rounded-3 text-white-50"
+                        style="background: rgba(255,255,255,0.02);">2</div>
+                    <div class="calendar-day disabled p-3 rounded-3 text-white-50"
+                        style="background: rgba(255,255,255,0.02);">3</div>
+                    <div class="calendar-day disabled p-3 rounded-3 text-white-50"
+                        style="background: rgba(255,255,255,0.02);">4</div>
+                </div>
             </div>
         </div>
     </div>
-</div>
-{% endblock %}
 
-{% block extra_js %}
-<script>
-    function toggleAgente(nome) {
-        // Mock toggle
-        console.log(`Toggled ${nome}`);
-    }
+    <style>
+        .calendar-day {
+            min-height: 100px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
 
-    function configurarSupervisor() {
-        const modal = new bootstrap.Modal(document.getElementById('configModal'));
-        modal.show();
-    }
+        .calendar-day:not(.disabled):hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.3) !important;
+        }
+    </style>
 
-    function configurarAgente(nome) {
-        const modal = new bootstrap.Modal(document.getElementById('configModal'));
-        modal.show();
-    }
+    <!-- Modal Configuração (Placeholder) -->
+    <div class="modal fade" id="configModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content" style="background: #1a1a1a; border: 1px solid #333; color: white;">
+                <div class="modal-header border-bottom border-secondary">
+                    <h5 class="modal-title fw-bold">Configurar Agente</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-center text-secondary py-5">
+                        <i class="bi bi-cone-striped fs-1 d-block mb-3"></i>
+                        Funcionalidade em desenvolvimento.<br>
+                        Em breve você poderá editar prompts e tools aqui.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
 
-    function verLogs() {
-        alert('Logs em breve');
-    }
+    {% block extra_js %}
+    <script>
+        function toggleAgente(nome) {
+            // Mock toggle
+            console.log(`Toggled ${nome}`);
+        }
 
-    function abrirModalNovoAgente() {
-        const modal = new bootstrap.Modal(document.getElementById('configModal'));
-        modal.show();
-    }
-</script>
-{% endblock %}
+        function configurarSupervisor() {
+            const modal = new bootstrap.Modal(document.getElementById('configModal'));
+            modal.show();
+        }
+
+        function configurarAgente(nome) {
+            const modal = new bootstrap.Modal(document.getElementById('configModal'));
+            modal.show();
+        }
+
+        function verLogs() {
+            alert('Logs em breve');
+        }
+
+        function abrirModalNovoAgente() {
+            const modal = new bootstrap.Modal(document.getElementById('configModal'));
+            modal.show();
+        }
+    </script>
+    {% endblock %}
