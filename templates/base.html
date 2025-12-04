@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
 
 <head>
     <meta charset="UTF-8">
@@ -7,334 +7,24 @@
     <title>{% block title %}Secretaria IA{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary-color: #0071e3;
-            /* Apple Blue */
-            --sidebar-bg: rgba(255, 255, 255, 0.65);
-            --glass-bg: rgba(255, 255, 255, 0.65);
-            --glass-border: 1px solid rgba(255, 255, 255, 0.4);
-            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-            --text-primary: #1d1d1f;
-            --text-secondary: #86868b;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #f5f5f7 url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop') no-repeat center center fixed;
-            background-size: cover;
-            color: var(--text-primary);
-        }
-
-        .sidebar {
-            background: var(--sidebar-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-right: var(--glass-border);
-            min-height: 100vh;
-            position: fixed;
-            width: 280px;
-            padding-top: 2rem;
-            z-index: 1000;
-        }
-
-        .sidebar .nav-link {
-            color: var(--text-secondary);
-            padding: 0.85rem 1.5rem;
-            margin: 0.25rem 1rem;
-            border-radius: 12px;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-
-        .sidebar .nav-link:hover {
-            background: rgba(0, 113, 227, 0.1);
-            color: var(--primary-color);
-        }
-
-        .sidebar .nav-link.active {
-            background: var(--primary-color);
-            color: white;
-            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
-        }
-
-        .sidebar .nav-link i {
-            margin-right: 1rem;
-            width: 24px;
-            font-size: 1.1rem;
-        }
-
-        .sidebar-brand {
-            color: var(--text-primary);
-            padding: 0 1.5rem;
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .sidebar-brand i {
-            color: var(--primary-color);
-            font-size: 1.75rem;
-        }
-
-        .main-content {
-            margin-left: 280px;
-            padding: 2.5rem;
-            transition: margin-left 0.3s ease;
-        }
-
-        /* Sidebar Collapsed State */
-        .sidebar.collapsed {
-            width: 80px;
-        }
-
-        .sidebar.collapsed .sidebar-brand span,
-        .sidebar.collapsed .nav-link span {
-            display: none;
-        }
-
-        .sidebar.collapsed .sidebar-brand {
-            padding: 0;
-            justify-content: center;
-        }
-
-        .sidebar.collapsed .nav-link {
-            padding: 0.85rem;
-            text-align: center;
-            margin: 0.25rem 0.5rem;
-        }
-
-        .sidebar.collapsed .nav-link i {
-            margin-right: 0;
-            font-size: 1.25rem;
-        }
-
-        .main-content.expanded {
-            margin-left: 80px;
-        }
-
-        #sidebarToggle {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 8px;
-            transition: all 0.2s;
-        }
-
-        #sidebarToggle:hover {
-            background: rgba(0, 0, 0, 0.05);
-            color: var(--primary-color);
-        }
-
-        .card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: var(--glass-border);
-            box-shadow: var(--glass-shadow);
-            border-radius: 24px;
-        }
-
-        .card-header {
-            background: transparent;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            font-weight: 600;
-            padding: 1.25rem 1.5rem;
-        }
-
-        .card-body {
-            padding: 1.5rem;
-        }
-
-        /* Button Styles */
-        .btn-primary {
-            background: var(--primary-color);
-            border: none;
-            border-radius: 12px;
-            padding: 0.6rem 1.5rem;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.25);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .btn-primary:hover {
-            background: #0077ed;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 113, 227, 0.35);
-        }
-
-        .btn-outline-primary {
-            background: rgba(255, 255, 255, 0.2);
-            /* Much softer background */
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            color: var(--primary-color);
-            border: 1px solid rgba(0, 113, 227, 0.3);
-            /* Softer border */
-            border-radius: 12px;
-            padding: 0.6rem 1.5rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-            /* Very subtle shadow */
-        }
-
-        .btn-outline-primary:hover {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 15px rgba(0, 113, 227, 0.25);
-        }
-
-        .btn-outline-danger {
-            background: rgba(255, 255, 255, 0.5);
-            /* More visible background */
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            color: #dc2626;
-            /* Darker red */
-            border: 1px solid rgba(220, 38, 38, 0.5);
-            /* Stronger border */
-            border-radius: 12px;
-            padding: 0.4rem 1rem;
-            /* Adjusted padding to match btn-sm better */
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .btn-outline-danger:hover {
-            background: #ef4444;
-            color: white;
-            border-color: #ef4444;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 15px rgba(239, 68, 68, 0.25);
-        }
-
-        .btn-sm {
-            padding: 0.4rem 0.8rem;
-            font-size: 0.85rem;
-        }
-
-        /* Table Styles */
-        .table {
-            --bs-table-bg: transparent;
-            --bs-table-color: var(--text-primary);
-            --bs-table-border-color: rgba(0, 0, 0, 0.05);
-            margin-bottom: 0;
-        }
-
-        .table th {
-            font-weight: 600;
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            padding: 1rem 1.5rem;
-            background: transparent;
-        }
-
-        .table td {
-            padding: 1rem 1.5rem;
-            vertical-align: middle;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            color: var(--text-primary);
-        }
-
-        .table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .table-hover tbody tr:hover {
-            background-color: rgba(255, 255, 255, 0.15) !important;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-        }
-
-        .table-hover tbody tr:hover td {
-            color: var(--primary-color);
-            background-color: transparent;
-        }
-
-        .badge-status {
-            padding: 0.35rem 0.65rem;
-            border-radius: 0.5rem;
-            font-weight: 500;
-        }
-
-        .modal-content {
-            background: rgba(255, 255, 255, 0.85);
-            /* Slightly more opaque for modals */
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: var(--glass-border);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-            border-radius: 24px;
-        }
-
-        .modal-header {
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            padding: 1.5rem 1.5rem 1rem;
-        }
-
-        .modal-body {
-            padding: 1.5rem;
-        }
-
-        .modal-footer {
-            border-top: 1px solid rgba(0, 0, 0, 0.05);
-            padding: 1rem 1.5rem 1.5rem;
-        }
-
-        .modal-backdrop.show {
-            opacity: 0.3;
-            backdrop-filter: blur(5px);
-            -webkit-backdrop-filter: blur(5px);
-        }
-
-        .fc-event {
-            cursor: pointer;
-        }
-
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 100%;
-                position: relative;
-                min-height: auto;
-            }
-
-            .main-content {
-                margin-left: 0;
-            }
-        }
-    </style>
+    <link href="{{ url_for('static', path='css/style.css') }}" rel="stylesheet">
+    <script>
+        // Pre-load theme to prevent flash
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
     {% block extra_css %}{% endblock %}
 </head>
 
 <body>
     <div class="d-flex">
         <!-- Sidebar -->
-        <nav class="sidebar">
-            <div class="sidebar-brand d-flex justify-content-between align-items-center px-3">
+        <nav class="sidebar collapsed">
+            <div class="sidebar-brand d-flex justify-content-center align-items-center px-3">
                 <div class="d-flex align-items-center gap-2">
                     <i class="bi bi-robot"></i>
                     <span>Secretaria IA</span>
                 </div>
-                <button id="sidebarToggle" class="btn btn-link text-white p-0" onclick="toggleSidebar()">
-                    <i class="bi bi-list fs-4"></i>
-                </button>
             </div>
             <div class="nav flex-column">
                 <a href="/admin"
@@ -359,7 +49,8 @@
                     <i class="bi bi-database"></i>
                     <span>Base de Conhecimento</span>
                 </a>
-                <a href="/admin/perguntas-sem-resposta" class="nav-link {% if 'perguntas-sem-resposta' in request.url.path %}active{% endif %}">
+                <a href="/admin/perguntas-sem-resposta"
+                    class="nav-link {% if 'perguntas-sem-resposta' in request.url.path %}active{% endif %}">
                     <i class="bi bi-question-circle"></i>
                     <span>Perguntas s/ Resposta</span>
                 </a>
@@ -367,7 +58,8 @@
                     <i class="bi bi-kanban"></i>
                     <span>Pipeline</span>
                 </a>
-                <a href="/admin/configuracoes" class="nav-link {% if 'configuracoes' in request.url.path %}active{% endif %}">
+                <a href="/admin/configuracoes"
+                    class="nav-link {% if 'configuracoes' in request.url.path %}active{% endif %}">
                     <i class="bi bi-gear"></i>
                     <span>Configuracoes</span>
                 </a>
@@ -379,32 +71,146 @@
         </nav>
 
         <!-- Main Content -->
-        <main class="main-content flex-grow-1">
-            {% block content %}{% endblock %}
+        <main class="main-content flex-grow-1 expanded position-relative d-flex flex-column">
+            <!-- Header -->
+            <header class="main-header glass d-flex justify-content-between align-items-center px-4 py-3">
+                <div class="d-flex align-items-center">
+                    <h5 class="mb-0 fw-bold text-primary">Secretaria IA</h5>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <button id="themeToggle" class="theme-toggle" title="Alternar Tema">
+                        <i class="bi bi-moon-stars"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="flex-grow-1">
+                {% block content %}{% endblock %}
+            </div>
+
+            <!-- Footer -->
+            <footer class="main-footer glass text-center py-3 mt-4">
+                <small class="text-secondary">&copy; 2025 Secretaria IA. Todos os direitos reservados.</small>
+            </footer>
         </main>
     </div>
 
     <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Sidebar Toggle Logic
-        function toggleSidebar() {
-            const sidebar = document.querySelector('.sidebar');
-            const mainContent = document.querySelector('.main-content');
-            const isCollapsed = sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('expanded');
+        // Theme Toggle Logic
+        const themeToggleBtn = document.getElementById('themeToggle');
+        const themeIcon = themeToggleBtn.querySelector('i');
 
-            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        function updateThemeIcon(theme) {
+            if (theme === 'dark') {
+                themeIcon.classList.remove('bi-moon-stars');
+                themeIcon.classList.add('bi-sun');
+            } else {
+                themeIcon.classList.remove('bi-sun');
+                themeIcon.classList.add('bi-moon-stars');
+            }
         }
 
-        // Restore state on load
+        // Set initial icon
+        updateThemeIcon(savedTheme);
+
+        themeToggleBtn.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+            applyBranding(newTheme); // Apply branding for new theme
+        });
+
+        // Branding Logic
+        let systemConfigs = {};
+
+        function hexToRgb(hex) {
+            // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
+            var shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+            hex = hex.replace(shorthandRegex, function (m, r, g, b) {
+                return r + r + g + g + b + b;
+            });
+
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ?
+                `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : null;
+        }
+
+        function applyBranding(theme) {
+            const configs = JSON.parse(localStorage.getItem('systemConfigs') || '{}');
+            const root = document.documentElement;
+
+            // System Name
+            const name = configs.system_name || 'Secretaria IA';
+            document.querySelectorAll('.sidebar-brand span, .main-header h5').forEach(el => el.textContent = name);
+            document.title = `${name} - Admin`;
+
+            // Colors
+            const mode = theme === 'dark' ? 'dark' : 'light';
+
+            const colors = {
+                '--primary-color': configs[`system_primary_color_${mode}`] || (theme === 'dark' ? '#2997ff' : '#0071e3'),
+                '--secondary-color': configs[`system_secondary_color_${mode}`] || (theme === 'dark' ? '#98989d' : '#86868b'),
+                '--success-color': configs[`system_success_color_${mode}`] || (theme === 'dark' ? '#30d158' : '#34c759'),
+                '--warning-color': configs[`system_warning_color_${mode}`] || (theme === 'dark' ? '#ff9f0a' : '#ff9f0a'),
+                '--danger-color': configs[`system_danger_color_${mode}`] || (theme === 'dark' ? '#ff453a' : '#ff3b30')
+            };
+
+            Object.entries(colors).forEach(([key, value]) => {
+                root.style.setProperty(key, value);
+
+                // Set Bootstrap RGB variables for opacity utilities
+                const rgb = hexToRgb(value);
+                if (rgb) {
+                    const bsVar = key.replace('--', '--bs-').replace('-color', '-rgb'); // e.g. --bs-primary-rgb
+                    root.style.setProperty(bsVar, rgb);
+                }
+            });
+        }
+
+        async function loadBranding() {
+            try {
+                // Try to get from localStorage first for speed
+                const cached = localStorage.getItem('systemConfigs');
+                if (cached) {
+                    systemConfigs = JSON.parse(cached);
+                    applyBranding(savedTheme);
+                }
+
+                // Fetch fresh from API
+                const data = await apiCall('/api/admin/config');
+                if (data.configs) {
+                    systemConfigs = data.configs.reduce((acc, curr) => {
+                        acc[curr.chave] = curr.valor;
+                        return acc;
+                    }, {});
+                    localStorage.setItem('systemConfigs', JSON.stringify(systemConfigs));
+                    applyBranding(document.documentElement.getAttribute('data-theme'));
+                }
+            } catch (e) {
+                console.error('Error loading branding:', e);
+            }
+        }
+
+        // Load branding on start
+        loadBranding();
+
+
+
+        // Restore sidebar state on load
         document.addEventListener('DOMContentLoaded', () => {
-            const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-            if (isCollapsed) {
-                document.querySelector('.sidebar').classList.add('collapsed');
-                document.querySelector('.main-content').classList.add('expanded');
+            const savedState = localStorage.getItem('sidebarState_v2');
+            // Only expand if explicitly set to 'false' (meaning user expanded it)
+            if (savedState === 'false') {
+                document.querySelector('.sidebar').classList.remove('collapsed');
+                document.querySelector('.main-content').classList.remove('expanded');
             }
         });
 

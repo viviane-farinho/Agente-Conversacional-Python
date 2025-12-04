@@ -92,6 +92,15 @@ async def agenda_init_tables() -> None:
             )
         """)
 
+        # Migration: Ensure 'type' and 'description' columns exist (for existing databases)
+        try:
+            await conn.execute("ALTER TABLE system_config ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'string'")
+            await conn.execute("ALTER TABLE system_config ADD COLUMN IF NOT EXISTS description TEXT")
+            # Fix: Convert value column to TEXT if it was created as JSON/JSONB
+            await conn.execute("ALTER TABLE system_config ALTER COLUMN value TYPE TEXT")
+        except Exception as e:
+            print(f"Migration warning: {e}")
+
 
 # --- Profissionais ---
 

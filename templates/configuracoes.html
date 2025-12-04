@@ -27,11 +27,11 @@
     }
 
     .badge-default {
-        background-color: #6c757d;
+        background-color: var(--secondary-color);
     }
 
     .badge-custom {
-        background-color: #0d6efd;
+        background-color: var(--primary-color);
     }
 </style>
 {% endblock %}
@@ -54,97 +54,346 @@
     </div>
 </div>
 
-<!-- Lista de Configuracoes -->
-<div class="row" id="listaConfigs">
-    <!-- Configuracoes serao carregadas aqui -->
-</div>
+<!-- Identidade Visual -->
+<div class="card border-0 glass mb-4">
+    <div class="card-header bg-transparent border-bottom border-light">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-palette me-2 text-primary"></i>Identidade Visual</h5>
+    </div>
+    <div class="card-body">
+        <form id="formIdentidade">
+            <div class="mb-4">
+                <label class="form-label fw-bold">Nome do Sistema</label>
+                <input type="text" class="form-control" id="systemName" placeholder="Ex: Minha Empresa IA">
+                <div class="form-text">Nome exibido no cabeçalho e menu lateral.</div>
+            </div>
 
-<!-- Modal Editor de Configuracao -->
-<div class="modal fade" id="modalConfig" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalConfigTitle">Editar Configuracao</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <h6 class="fw-bold mb-3">Paleta de Cores</h6>
+
+            <ul class="nav nav-tabs mb-3" id="colorTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="light-tab" data-bs-toggle="tab" data-bs-target="#light-mode"
+                        type="button" role="tab">
+                        <i class="bi bi-sun me-2"></i>Modo Claro
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="dark-tab" data-bs-toggle="tab" data-bs-target="#dark-mode"
+                        type="button" role="tab">
+                        <i class="bi bi-moon-stars me-2"></i>Modo Escuro
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="colorTabsContent">
+                <!-- Modo Claro -->
+                <div class="tab-pane fade show active" id="light-mode" role="tabpanel">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Cor Primária</label>
+                            <div class="input-group">
+                                <input type="color" class="form-control form-control-color" id="primaryColorLight"
+                                    value="#0071e3" title="Escolher cor">
+                                <input type="text" class="form-control" id="primaryColorLightText" value="#0071e3">
+                            </div>
+                            <div class="form-text">Botões principais, links, destaques.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Cor Secundária</label>
+                            <div class="input-group">
+                                <input type="color" class="form-control form-control-color" id="secondaryColorLight"
+                                    value="#86868b" title="Escolher cor">
+                                <input type="text" class="form-control" id="secondaryColorLightText" value="#86868b">
+                            </div>
+                            <div class="form-text">Textos secundários, bordas sutis.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Sucesso</label>
+                            <div class="input-group">
+                                <input type="color" class="form-control form-control-color" id="successColorLight"
+                                    value="#34c759" title="Escolher cor">
+                                <input type="text" class="form-control" id="successColorLightText" value="#34c759">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Atenção</label>
+                            <div class="input-group">
+                                <input type="color" class="form-control form-control-color" id="warningColorLight"
+                                    value="#ff9f0a" title="Escolher cor">
+                                <input type="text" class="form-control" id="warningColorLightText" value="#ff9f0a">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Erro / Perigo</label>
+                            <div class="input-group">
+                                <input type="color" class="form-control form-control-color" id="dangerColorLight"
+                                    value="#ff3b30" title="Escolher cor">
+                                <input type="text" class="form-control" id="dangerColorLightText" value="#ff3b30">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modo Escuro -->
+                <div class="tab-pane fade" id="dark-mode" role="tabpanel">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Cor Primária</label>
+                            <div class="input-group">
+                                <input type="color" class="form-control form-control-color" id="primaryColorDark"
+                                    value="#2997ff" title="Escolher cor">
+                                <input type="text" class="form-control" id="primaryColorDarkText" value="#2997ff">
+                            </div>
+                            <div class="form-text">Botões principais, links, destaques.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Cor Secundária</label>
+                            <div class="input-group">
+                                <input type="color" class="form-control form-control-color" id="secondaryColorDark"
+                                    value="#98989d" title="Escolher cor">
+                                <input type="text" class="form-control" id="secondaryColorDarkText" value="#98989d">
+                            </div>
+                            <div class="form-text">Textos secundários, bordas sutis.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Sucesso</label>
+                            <div class="input-group">
+                                <input type="color" class="form-control form-control-color" id="successColorDark"
+                                    value="#30d158" title="Escolher cor">
+                                <input type="text" class="form-control" id="successColorDarkText" value="#30d158">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Atenção</label>
+                            <div class="input-group">
+                                <input type="color" class="form-control form-control-color" id="warningColorDark"
+                                    value="#ff9f0a" title="Escolher cor">
+                                <input type="text" class="form-control" id="warningColorDarkText" value="#ff9f0a">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Erro / Perigo</label>
+                            <div class="input-group">
+                                <input type="color" class="form-control form-control-color" id="dangerColorDark"
+                                    value="#ff453a" title="Escolher cor">
+                                <input type="text" class="form-control" id="dangerColorDarkText" value="#ff453a">
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="modal-body">
-                <form id="formConfig">
-                    <input type="hidden" id="configChave">
-                    <div class="mb-3">
-                        <label class="form-label">Chave</label>
-                        <input type="text" class="form-control" id="configChaveDisplay" disabled>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Descricao</label>
-                        <p class="text-muted small" id="configDescricao">-</p>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Tipo</label>
-                        <select class="form-select" id="configTipo">
-                            <option value="string">Texto</option>
-                            <option value="integer">Numero inteiro</option>
-                            <option value="float">Numero decimal</option>
-                            <option value="boolean">Booleano (true/false)</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Valor *</label>
-                        <input type="text" class="form-control config-value" id="configValor" required>
-                        <small class="text-muted" id="configValorHelp"></small>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-warning d-none" id="btnRestaurarConfig" onclick="restaurarConfig()">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar Padrao
+
+            <div class="mt-4 text-end">
+                <button type="button" class="btn btn-primary" onclick="salvarIdentidade()">
+                    <i class="bi bi-save me-2"></i>Salvar Identidade
                 </button>
-                <button type="button" class="btn btn-primary" onclick="salvarConfig()">
-                    <i class="bi bi-save me-1"></i> Salvar
-                </button>
             </div>
-        </div>
+        </form>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
-<script>
-    let configs = [];
+<div class="row mb-4">
+    <div class="col-12">
 
-    // Mapeamento de descricoes amigaveis
-    const configLabels = {
-        'message_buffer_seconds': {
-            label: 'Tempo de Buffer (segundos)',
-            icon: 'bi-clock',
-            help: 'Tempo de espera antes de processar mensagens (para agrupar mensagens seguidas)'
-        },
-        'context_window_length': {
-            label: 'Tamanho do Contexto',
-            icon: 'bi-chat-dots',
-            help: 'Numero maximo de mensagens mantidas no historico'
-        }
-    };
+        <!-- Lista de Configuracoes -->
+        <div class="row" id="listaConfigs">
+            <!-- Configuracoes serao carregadas aqui -->
+        </div>
 
-    document.addEventListener('DOMContentLoaded', function () {
-        carregarConfigs();
-    });
+        <!-- Modal Editor de Configuracao -->
+        <div class="modal fade" id="modalConfig" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalConfigTitle">Editar Configuracao</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="formConfig">
+                            <input type="hidden" id="configChave">
+                            <div class="mb-3">
+                                <label class="form-label">Chave</label>
+                                <input type="text" class="form-control" id="configChaveDisplay" disabled>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Descricao</label>
+                                <p class="text-muted small" id="configDescricao">-</p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Tipo</label>
+                                <select class="form-select" id="configTipo">
+                                    <option value="string">Texto</option>
+                                    <option value="integer">Numero inteiro</option>
+                                    <option value="float">Numero decimal</option>
+                                    <option value="boolean">Booleano (true/false)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Valor *</label>
+                                <input type="text" class="form-control config-value" id="configValor" required>
+                                <small class="text-muted" id="configValorHelp"></small>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-warning d-none" id="btnRestaurarConfig"
+                            onclick="restaurarConfig()">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar Padrao
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="salvarConfig()">
+                            <i class="bi bi-save me-1"></i> Salvar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endblock %}
 
-    async function carregarConfigs() {
-        try {
-            const data = await apiCall('/api/admin/config');
-            configs = data.configs || [];
-            renderizarConfigs();
-        } catch (error) {
-            showToast('Erro ao carregar configuracoes: ' + error.message, 'danger');
-        }
-    }
+        {% block extra_js %}
+        <script>
+            let configs = [];
 
-    function renderizarConfigs() {
-        const container = document.getElementById('listaConfigs');
+            // Mapeamento de descricoes amigaveis
+            const configLabels = {
+                'message_buffer_seconds': {
+                    label: 'Tempo de Buffer (segundos)',
+                    icon: 'bi-clock',
+                    help: 'Tempo de espera antes de processar mensagens (para agrupar mensagens seguidas)'
+                },
+                'context_window_length': {
+                    label: 'Tamanho do Contexto',
+                    icon: 'bi-chat-dots',
+                    help: 'Numero maximo de mensagens mantidas no historico'
+                }
+            };
 
-        if (configs.length === 0) {
-            container.innerHTML = `
+            document.addEventListener('DOMContentLoaded', function () {
+                carregarConfigs();
+                carregarIdentidade();
+                setupColorInputs();
+            });
+
+            function setupColorInputs() {
+                // Sync color inputs with text inputs
+                const pairs = [
+                    ['primaryColorLight', 'primaryColorLightText'],
+                    ['secondaryColorLight', 'secondaryColorLightText'],
+                    ['successColorLight', 'successColorLightText'],
+                    ['warningColorLight', 'warningColorLightText'],
+                    ['dangerColorLight', 'dangerColorLightText'],
+                    ['primaryColorDark', 'primaryColorDarkText'],
+                    ['secondaryColorDark', 'secondaryColorDarkText'],
+                    ['successColorDark', 'successColorDarkText'],
+                    ['warningColorDark', 'warningColorDarkText'],
+                    ['dangerColorDark', 'dangerColorDarkText']
+                ];
+
+                pairs.forEach(([colorId, textId]) => {
+                    const colorInput = document.getElementById(colorId);
+                    const textInput = document.getElementById(textId);
+
+                    if (colorInput && textInput) {
+                        colorInput.addEventListener('input', (e) => textInput.value = e.target.value);
+                        textInput.addEventListener('input', (e) => colorInput.value = e.target.value);
+                    }
+                });
+            }
+
+            async function carregarIdentidade() {
+                try {
+                    const data = await apiCall('/api/admin/config');
+                    const configs = data.configs || [];
+
+                    // Helper to get value safely
+                    const getVal = (key, defaultVal) => {
+                        const c = configs.find(x => x.chave === key);
+                        return c ? c.valor : defaultVal;
+                    };
+
+                    document.getElementById('systemName').value = getVal('system_name', '');
+
+                    // Light Mode Defaults
+                    document.getElementById('primaryColorLight').value = getVal('system_primary_color_light', '#0071e3');
+                    document.getElementById('primaryColorLightText').value = getVal('system_primary_color_light', '#0071e3');
+                    document.getElementById('secondaryColorLight').value = getVal('system_secondary_color_light', '#86868b');
+                    document.getElementById('secondaryColorLightText').value = getVal('system_secondary_color_light', '#86868b');
+                    document.getElementById('successColorLight').value = getVal('system_success_color_light', '#34c759');
+                    document.getElementById('successColorLightText').value = getVal('system_success_color_light', '#34c759');
+                    document.getElementById('warningColorLight').value = getVal('system_warning_color_light', '#ff9f0a');
+                    document.getElementById('warningColorLightText').value = getVal('system_warning_color_light', '#ff9f0a');
+                    document.getElementById('dangerColorLight').value = getVal('system_danger_color_light', '#ff3b30');
+                    document.getElementById('dangerColorLightText').value = getVal('system_danger_color_light', '#ff3b30');
+
+                    // Dark Mode Defaults
+                    document.getElementById('primaryColorDark').value = getVal('system_primary_color_dark', '#2997ff');
+                    document.getElementById('primaryColorDarkText').value = getVal('system_primary_color_dark', '#2997ff');
+                    document.getElementById('secondaryColorDark').value = getVal('system_secondary_color_dark', '#98989d');
+                    document.getElementById('secondaryColorDarkText').value = getVal('system_secondary_color_dark', '#98989d');
+                    document.getElementById('successColorDark').value = getVal('system_success_color_dark', '#30d158');
+                    document.getElementById('successColorDarkText').value = getVal('system_success_color_dark', '#30d158');
+                    document.getElementById('warningColorDark').value = getVal('system_warning_color_dark', '#ff9f0a');
+                    document.getElementById('warningColorDarkText').value = getVal('system_warning_color_dark', '#ff9f0a');
+                    document.getElementById('dangerColorDark').value = getVal('system_danger_color_dark', '#ff453a');
+                    document.getElementById('dangerColorDarkText').value = getVal('system_danger_color_dark', '#ff453a');
+
+                } catch (error) {
+                    console.error('Erro ao carregar identidade:', error);
+                }
+            }
+
+            async function salvarIdentidade() {
+                const configs = {
+                    'system_name': document.getElementById('systemName').value,
+
+                    'system_primary_color_light': document.getElementById('primaryColorLight').value,
+                    'system_secondary_color_light': document.getElementById('secondaryColorLight').value,
+                    'system_success_color_light': document.getElementById('successColorLight').value,
+                    'system_warning_color_light': document.getElementById('warningColorLight').value,
+                    'system_danger_color_light': document.getElementById('dangerColorLight').value,
+
+                    'system_primary_color_dark': document.getElementById('primaryColorDark').value,
+                    'system_secondary_color_dark': document.getElementById('secondaryColorDark').value,
+                    'system_success_color_dark': document.getElementById('successColorDark').value,
+                    'system_warning_color_dark': document.getElementById('warningColorDark').value,
+                    'system_danger_color_dark': document.getElementById('dangerColorDark').value
+                };
+
+                try {
+                    const promises = Object.entries(configs).map(([key, value]) => {
+                        if (!value) return Promise.resolve(); // Skip empty
+                        return apiCall(`/api/admin/config/${key}`, 'PUT', {
+                            valor: value,
+                            tipo: 'string',
+                            descricao: 'Configuração de Identidade Visual'
+                        });
+                    });
+
+                    await Promise.all(promises);
+                    showToast('Identidade visual salva com sucesso!');
+
+                    // Reload to apply changes immediately
+                    setTimeout(() => window.location.reload(), 1000);
+
+                } catch (error) {
+                    showToast('Erro ao salvar identidade: ' + error.message, 'danger');
+                }
+            }
+
+            async function carregarConfigs() {
+                try {
+                    const data = await apiCall('/api/admin/config');
+                    configs = data.configs || [];
+                    renderizarConfigs();
+                } catch (error) {
+                    showToast('Erro ao carregar configuracoes: ' + error.message, 'danger');
+                }
+            }
+
+            function renderizarConfigs() {
+                const container = document.getElementById('listaConfigs');
+
+                if (configs.length === 0) {
+                    container.innerHTML = `
             <div class="col-12">
                 <div class="text-center text-muted py-4">
                     <i class="bi bi-gear fs-1"></i>
@@ -152,17 +401,17 @@
                 </div>
             </div>
         `;
-            return;
-        }
+                    return;
+                }
 
-        container.innerHTML = configs.map(c => {
-            const info = configLabels[c.chave] || { label: c.chave, icon: 'bi-gear', help: '' };
-            const isDefault = c.is_default || !c.id;
-            const cardClass = isDefault ? 'config-default' : 'config-custom';
-            const badgeClass = isDefault ? 'badge-default' : 'badge-custom';
-            const badgeText = isDefault ? 'Padrao' : 'Personalizado';
+                container.innerHTML = configs.map(c => {
+                    const info = configLabels[c.chave] || { label: c.chave, icon: 'bi-gear', help: '' };
+                    const isDefault = c.is_default || !c.id;
+                    const cardClass = isDefault ? 'config-default' : 'config-custom';
+                    const badgeClass = isDefault ? 'badge-default' : 'badge-custom';
+                    const badgeText = isDefault ? 'Padrao' : 'Personalizado';
 
-            return `
+                    return `
             <div class="col-md-6 col-lg-4 mb-4">
                 <div class="card config-card h-100 border-0 ${cardClass}">
                     <div class="card-body">
@@ -185,101 +434,101 @@
                 </div>
             </div>
         `;
-        }).join('');
-    }
+                }).join('');
+            }
 
-    async function editarConfig(chave) {
-        const config = configs.find(c => c.chave === chave);
-        if (!config) return;
+            async function editarConfig(chave) {
+                const config = configs.find(c => c.chave === chave);
+                if (!config) return;
 
-        const info = configLabels[chave] || { label: chave, help: '' };
+                const info = configLabels[chave] || { label: chave, help: '' };
 
-        document.getElementById('modalConfigTitle').textContent = 'Editar: ' + info.label;
-        document.getElementById('configChave').value = config.chave;
-        document.getElementById('configChaveDisplay').value = config.chave;
-        document.getElementById('configDescricao').textContent = config.descricao || info.help || '-';
-        document.getElementById('configTipo').value = config.tipo || 'string';
-        document.getElementById('configValor').value = config.valor;
+                document.getElementById('modalConfigTitle').textContent = 'Editar: ' + info.label;
+                document.getElementById('configChave').value = config.chave;
+                document.getElementById('configChaveDisplay').value = config.chave;
+                document.getElementById('configDescricao').textContent = config.descricao || info.help || '-';
+                document.getElementById('configTipo').value = config.tipo || 'string';
+                document.getElementById('configValor').value = config.valor;
 
-        // Mostra/esconde botao de restaurar
-        const btnRestaurar = document.getElementById('btnRestaurarConfig');
-        if (config.is_default || !config.id) {
-            btnRestaurar.classList.add('d-none');
-        } else {
-            btnRestaurar.classList.remove('d-none');
-        }
+                // Mostra/esconde botao de restaurar
+                const btnRestaurar = document.getElementById('btnRestaurarConfig');
+                if (config.is_default || !config.id) {
+                    btnRestaurar.classList.add('d-none');
+                } else {
+                    btnRestaurar.classList.remove('d-none');
+                }
 
-        // Ajusta help text conforme tipo
-        atualizarHelpText();
+                // Ajusta help text conforme tipo
+                atualizarHelpText();
 
-        new bootstrap.Modal(document.getElementById('modalConfig')).show();
-    }
+                new bootstrap.Modal(document.getElementById('modalConfig')).show();
+            }
 
-    function atualizarHelpText() {
-        const tipo = document.getElementById('configTipo').value;
-        const help = document.getElementById('configValorHelp');
+            function atualizarHelpText() {
+                const tipo = document.getElementById('configTipo').value;
+                const help = document.getElementById('configValorHelp');
 
-        switch (tipo) {
-            case 'integer':
-                help.textContent = 'Digite apenas numeros inteiros (ex: 10, 50, 100)';
-                break;
-            case 'float':
-                help.textContent = 'Digite numeros decimais (ex: 1.5, 0.8)';
-                break;
-            case 'boolean':
-                help.textContent = 'Digite "true" ou "false"';
-                break;
-            default:
-                help.textContent = '';
-        }
-    }
+                switch (tipo) {
+                    case 'integer':
+                        help.textContent = 'Digite apenas numeros inteiros (ex: 10, 50, 100)';
+                        break;
+                    case 'float':
+                        help.textContent = 'Digite numeros decimais (ex: 1.5, 0.8)';
+                        break;
+                    case 'boolean':
+                        help.textContent = 'Digite "true" ou "false"';
+                        break;
+                    default:
+                        help.textContent = '';
+                }
+            }
 
-    document.getElementById('configTipo').addEventListener('change', atualizarHelpText);
+            document.getElementById('configTipo').addEventListener('change', atualizarHelpText);
 
-    async function salvarConfig() {
-        const chave = document.getElementById('configChave').value;
-        const valor = document.getElementById('configValor').value;
-        const tipo = document.getElementById('configTipo').value;
+            async function salvarConfig() {
+                const chave = document.getElementById('configChave').value;
+                const valor = document.getElementById('configValor').value;
+                const tipo = document.getElementById('configTipo').value;
 
-        // Validacao basica
-        if (tipo === 'integer' && !/^\d+$/.test(valor)) {
-            showToast('O valor deve ser um numero inteiro', 'danger');
-            return;
-        }
-        if (tipo === 'float' && !/^\d+\.?\d*$/.test(valor)) {
-            showToast('O valor deve ser um numero', 'danger');
-            return;
-        }
-        if (tipo === 'boolean' && !['true', 'false'].includes(valor.toLowerCase())) {
-            showToast('O valor deve ser "true" ou "false"', 'danger');
-            return;
-        }
+                // Validacao basica
+                if (tipo === 'integer' && !/^\d+$/.test(valor)) {
+                    showToast('O valor deve ser um numero inteiro', 'danger');
+                    return;
+                }
+                if (tipo === 'float' && !/^\d+\.?\d*$/.test(valor)) {
+                    showToast('O valor deve ser um numero', 'danger');
+                    return;
+                }
+                if (tipo === 'boolean' && !['true', 'false'].includes(valor.toLowerCase())) {
+                    showToast('O valor deve ser "true" ou "false"', 'danger');
+                    return;
+                }
 
-        try {
-            await apiCall(`/api/admin/config/${chave}`, 'PUT', {
-                valor: valor,
-                tipo: tipo
-            });
-            showToast('Configuracao salva com sucesso!');
-            bootstrap.Modal.getInstance(document.getElementById('modalConfig')).hide();
-            carregarConfigs();
-        } catch (error) {
-            showToast('Erro: ' + error.message, 'danger');
-        }
-    }
+                try {
+                    await apiCall(`/api/admin/config/${chave}`, 'PUT', {
+                        valor: valor,
+                        tipo: tipo
+                    });
+                    showToast('Configuracao salva com sucesso!');
+                    bootstrap.Modal.getInstance(document.getElementById('modalConfig')).hide();
+                    carregarConfigs();
+                } catch (error) {
+                    showToast('Erro: ' + error.message, 'danger');
+                }
+            }
 
-    async function restaurarConfig() {
-        const chave = document.getElementById('configChave').value;
-        if (!confirm('Deseja restaurar esta configuracao para o valor padrao?')) return;
+            async function restaurarConfig() {
+                const chave = document.getElementById('configChave').value;
+                if (!confirm('Deseja restaurar esta configuracao para o valor padrao?')) return;
 
-        try {
-            await apiCall(`/api/admin/config/${chave}`, 'DELETE');
-            showToast('Configuracao restaurada para o padrao!');
-            bootstrap.Modal.getInstance(document.getElementById('modalConfig')).hide();
-            carregarConfigs();
-        } catch (error) {
-            showToast('Erro: ' + error.message, 'danger');
-        }
-    }
-</script>
-{% endblock %}
+                try {
+                    await apiCall(`/api/admin/config/${chave}`, 'DELETE');
+                    showToast('Configuracao restaurada para o padrao!');
+                    bootstrap.Modal.getInstance(document.getElementById('modalConfig')).hide();
+                    carregarConfigs();
+                } catch (error) {
+                    showToast('Erro: ' + error.message, 'danger');
+                }
+            }
+        </script>
+        {% endblock %}

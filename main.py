@@ -200,6 +200,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Templates
 templates = Jinja2Templates(directory="templates")
 
+# Arquivos Estaticos
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # Sessoes ativas (em producao, usar Redis ou banco de dados)
 active_sessions: dict = {}
 

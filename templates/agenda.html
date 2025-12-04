@@ -8,24 +8,126 @@
     #calendar {
         max-width: 100%;
         margin: 0 auto;
+        font-family: inherit;
+    }
+
+    /* FullCalendar Customization */
+    .fc {
+        --fc-border-color: var(--border-color);
+        --fc-button-text-color: #fff;
+        --fc-button-bg-color: var(--primary-color);
+        --fc-button-border-color: var(--primary-color);
+        --fc-button-hover-bg-color: var(--primary-hover);
+        --fc-button-hover-border-color: var(--primary-hover);
+        --fc-button-active-bg-color: var(--primary-hover);
+        --fc-button-active-border-color: var(--primary-hover);
+        --fc-event-bg-color: var(--primary-color);
+        --fc-event-border-color: var(--primary-color);
+        --fc-today-bg-color: var(--hover-bg);
+        --fc-page-bg-color: transparent;
+        --fc-neutral-bg-color: var(--hover-bg);
+        --fc-list-event-hover-bg-color: var(--hover-bg);
+    }
+
+    .fc-theme-standard .fc-scrollgrid {
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .fc-theme-standard td,
+    .fc-theme-standard th {
+        border-color: var(--border-color);
+    }
+
+    .fc-col-header-cell-cushion {
+        color: var(--text-secondary);
+        font-weight: 600;
+        padding: 10px 0;
+        text-decoration: none !important;
+    }
+
+    .fc-timegrid-slot-label-cushion {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+    }
+
+    .fc-toolbar-title {
+        font-size: 1.5rem !important;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .fc-button {
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+        font-size: 0.85rem !important;
+        text-transform: capitalize;
+        padding: 0.35rem 0.8rem !important;
+        box-shadow: none !important;
+        border: none !important;
+        transition: all 0.2s ease;
+        margin: 0 3px !important;
+    }
+
+    .fc-header-toolbar {
+        margin-bottom: 1.5rem !important;
+        padding: 0 0.5rem;
+    }
+
+    .fc-button-group {
+        gap: 4px;
+    }
+
+    .fc-button-primary {
+        background-color: var(--primary-color) !important;
+    }
+
+    .fc-button-active {
+        background-color: var(--primary-hover) !important;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
     }
 
     .fc-event {
         border: none !important;
+        border-radius: 6px;
         padding: 2px 4px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        font-size: 0.85rem;
+        font-weight: 500;
     }
 
     .fc-event-confirmado {
-        background-color: #22c55e !important;
+        background-color: var(--success-color) !important;
+        border-left: 4px solid rgba(255, 255, 255, 0.5) !important;
     }
 
     .fc-event-agendado {
-        background-color: #f59e0b !important;
+        background-color: var(--warning-color) !important;
+        border-left: 4px solid rgba(255, 255, 255, 0.5) !important;
     }
 
     .fc-event-cancelado {
-        background-color: #ef4444 !important;
-        opacity: 0.6;
+        background-color: var(--danger-color) !important;
+        opacity: 0.7;
+        text-decoration: line-through;
+    }
+
+    .fc-timegrid-now-indicator-line {
+        border-color: var(--danger-color);
+        border-width: 2px;
+    }
+
+    .fc-timegrid-now-indicator-arrow {
+        border-color: var(--danger-color);
+        border-width: 6px 0 6px 7px;
+        border-bottom-color: transparent;
+        border-top-color: transparent;
+    }
+
+    /* Glass Cards Override */
+    .card-header {
+        border-bottom: 1px solid var(--border-color);
     }
 </style>
 {% endblock %}
@@ -43,20 +145,20 @@
 
 <div class="row">
     <div class="col-md-3">
-        <div class="card mb-4 border-0">
-            <div class="card-header border-0 pb-0">
-                <h5 class="mb-0 fw-bold">Filtros</h5>
+        <div class="card glass mb-4 border-0">
+            <div class="card-header bg-transparent pb-0 border-0">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-funnel me-2 text-primary"></i>Filtros</h5>
             </div>
             <div class="card-body">
                 <div class="mb-3">
-                    <label class="form-label">Profissional</label>
-                    <select class="form-select" id="filtroProfissional">
+                    <label class="form-label text-secondary small fw-bold">Profissional</label>
+                    <select class="form-select bg-transparent border-secondary-subtle" id="filtroProfissional">
                         <option value="">Todos</option>
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Status</label>
-                    <select class="form-select" id="filtroStatus">
+                    <label class="form-label text-secondary small fw-bold">Status</label>
+                    <select class="form-select bg-transparent border-secondary-subtle" id="filtroStatus">
                         <option value="">Todos</option>
                         <option value="agendado">Agendado</option>
                         <option value="confirmado">Confirmado</option>
@@ -66,33 +168,37 @@
             </div>
         </div>
 
-        <div class="card border-0">
-            <div class="card-header border-0 pb-0">
-                <h5 class="mb-0 fw-bold">Legenda</h5>
+        <div class="card glass border-0">
+            <div class="card-header bg-transparent pb-0 border-0">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-info-circle me-2 text-primary"></i>Legenda</h5>
             </div>
             <div class="card-body">
-                <div class="d-flex align-items-center mb-2">
-                    <span class="badge bg-warning me-2">&nbsp;&nbsp;&nbsp;</span>
-                    <small>Agendado</small>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="rounded-circle me-2"
+                        style="background-color: var(--warning-color) !important; width: 12px; height: 12px; min-width: 12px;">
+                    </div>
+                    <small class="text-secondary fw-medium">Agendado</small>
                 </div>
-                <div class="d-flex align-items-center mb-2">
-                    <span class="badge bg-success me-2">&nbsp;&nbsp;&nbsp;</span>
-                    <small>Confirmado</small>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="rounded-circle me-2"
+                        style="background-color: var(--success-color) !important; width: 12px; height: 12px; min-width: 12px;">
+                    </div>
+                    <small class="text-secondary fw-medium">Confirmado</small>
                 </div>
                 <div class="d-flex align-items-center">
-                    <span class="badge bg-danger me-2" style="opacity:0.6">&nbsp;&nbsp;&nbsp;</span>
-                    <small>Cancelado</small>
+                    <div class="rounded-circle me-2"
+                        style="background-color: var(--danger-color) !important; width: 12px; height: 12px; min-width: 12px; opacity: 0.6;">
+                    </div>
+                    <small class="text-secondary fw-medium">Cancelado</small>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="col-md-9">
-        <div class="col-md-9">
-            <div class="card border-0">
-                <div class="card-body">
-                    <div id="calendar"></div>
-                </div>
+        <div class="card glass border-0 h-100">
+            <div class="card-body p-4">
+                <div id="calendar"></div>
             </div>
         </div>
     </div>
