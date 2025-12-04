@@ -520,7 +520,7 @@ def buscar_informacao_empresa(
     """
     try:
         # Importa o serviço RAG
-        from src.services.rag import rag_service
+        from src.services.rag import rag_service, rag_log_pergunta_sem_resposta_sync
 
         # 1. Query Rewriting: expande perguntas vagas
         query_expandida = _rewrite_query(pergunta)
@@ -544,12 +544,26 @@ def buscar_informacao_empresa(
             )
 
         if not results:
+            # Log: nenhum documento encontrado
+            rag_log_pergunta_sem_resposta_sync(
+                pergunta=pergunta,
+                motivo="nao_encontrado",
+                query_expandida=query_expandida,
+                docs_encontrados=0
+            )
             return "Não encontrei informações específicas sobre isso na base de conhecimento. Sugiro escalar para um atendente humano se a dúvida persistir."
 
         # 3. Grading: filtra documentos irrelevantes
         relevant_docs = _grade_documents(pergunta, results)
 
         if not relevant_docs:
+            # Log: documentos encontrados mas rejeitados pelo grading
+            rag_log_pergunta_sem_resposta_sync(
+                pergunta=pergunta,
+                motivo="grading_rejeitou",
+                query_expandida=query_expandida,
+                docs_encontrados=len(results)
+            )
             return "Encontrei alguns documentos, mas nenhum parece responder diretamente sua pergunta. Sugiro escalar para um atendente humano para uma resposta mais precisa."
 
         # 4. Formata resposta

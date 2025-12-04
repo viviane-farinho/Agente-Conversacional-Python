@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Perguntas sem Resposta - Secretaria IA{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        transition: all 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .pergunta-card {
+        transition: all 0.2s;
+        border-left: 4px solid transparent;
+    }
+
+    .pergunta-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .pergunta-card.nao-encontrado {
+        border-left-color: #dc3545;
+    }
+
+    .pergunta-card.grading-rejeitou {
+        border-left-color: #ffc107;
+    }
+
+    .pergunta-text {
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+
+    .query-expandida {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        background: rgba(0, 0, 0, 0.05);
+        padding: 0.5rem;
+        border-radius: 8px;
+    }
+
+    .badge-motivo {
+        font-size: 0.75rem;
+    }
+
+    .empty-state {
+        padding: 4rem 2rem;
+        text-align: center;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        color: var(--text-secondary);
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-5">
+    <div>
+        <h2 class="fw-bold mb-1">Perguntas sem Resposta</h2>
+        <p class="text-secondary mb-0">Perguntas que o RAG nao conseguiu responder</p>
+    </div>
+    <div>
+        <button class="btn btn-outline-primary me-2" onclick="toggleResolvidas()">
+            <i class="bi bi-eye me-1"></i>
+            <span id="btnToggleText">Mostrar Resolvidas</span>
+        </button>
+        <button class="btn btn-primary" onclick="carregarPerguntas()">
+            <i class="bi bi-arrow-clockwise me-1"></i> Atualizar
+        </button>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4" id="statsContainer">
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 border-0">
+            <div class="card-body text-center">
+                <div class="stat-value text-danger" id="statNaoResolvidas">-</div>
+                <div class="text-secondary small mt-2">Pendentes</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 border-0">
+            <div class="card-body text-center">
+                <div class="stat-value text-success" id="statResolvidas">-</div>
+                <div class="text-secondary small mt-2">Resolvidas</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 border-0">
+            <div class="card-body text-center">
+                <div class="stat-value text-danger" id="statNaoEncontrado">-</div>
+                <div class="text-secondary small mt-2">Nao Encontrado</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 border-0">
+            <div class="card-body text-center">
+                <div class="stat-value text-warning" id="statGradingRejeitou">-</div>
+                <div class="text-secondary small mt-2">Grading Rejeitou</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info Alert -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Dica:</strong> Estas perguntas indicam lacunas na base de conhecimento.
+            Crie documentos para responder as perguntas mais frequentes e marque como resolvidas.
+        </div>
+    </div>
+</div>
+
+<!-- Lista de Perguntas -->
+<div id="listaPerguntas">
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let perguntas = [];
+    let mostrarResolvidas = false;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        carregarStats();
+        carregarPerguntas();
+    });
+
+    async function carregarStats() {
+        try {
+            const stats = await apiCall('/api/admin/perguntas-sem-resposta/stats');
+
+            document.getElementById('statNaoResolvidas').textContent = stats.nao_resolvidas || 0;
+            document.getElementById('statResolvidas').textContent = stats.resolvidas || 0;
+            document.getElementById('statNaoEncontrado').textContent = stats.por_motivo?.nao_encontrado || 0;
+            document.getElementById('statGradingRejeitou').textContent = stats.por_motivo?.grading_rejeitou || 0;
+        } catch (error) {
+            console.error('Erro ao carregar stats:', error);
+        }
+    }
+
+    async function carregarPerguntas() {
+        try {
+            const url = `/api/admin/perguntas-sem-resposta?apenas_nao_resolvidas=${!mostrarResolvidas}`;
+            const data = await apiCall(url);
+            perguntas = data.perguntas || [];
+            renderizarPerguntas();
+        } catch (error) {
+            showToast('Erro ao carregar perguntas: ' + error.message, 'danger');
+        }
+    }
+
+    function toggleResolvidas() {
+        mostrarResolvidas = !mostrarResolvidas;
+        document.getElementById('btnToggleText').textContent = mostrarResolvidas ? 'Ocultar Resolvidas' : 'Mostrar Resolvidas';
+        carregarPerguntas();
+    }
+
+    function renderizarPerguntas() {
+        const container = document.getElementById('listaPerguntas');
+
+        if (perguntas.length === 0) {
+            container.innerHTML = `
+                <div class="card border-0">
+                    <div class="empty-state">
+                        <i class="bi bi-check-circle"></i>
+                        <h4 class="mt-3 text-secondary">Nenhuma pergunta pendente</h4>
+                        <p class="text-muted">Todas as perguntas foram respondidas ou resolvidas!</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = perguntas.map(p => {
+            const motivoClass = p.motivo === 'nao_encontrado' ? 'nao-encontrado' : 'grading-rejeitou';
+            const motivoBadge = p.motivo === 'nao_encontrado'
+                ? '<span class="badge bg-danger badge-motivo">Nao Encontrado</span>'
+                : '<span class="badge bg-warning text-dark badge-motivo">Grading Rejeitou</span>';
+
+            const dataFormatada = new Date(p.created_at).toLocaleString('pt-BR');
+
+            return `
+                <div class="card pergunta-card mb-3 border-0 ${motivoClass} ${p.resolvido ? 'opacity-50' : ''}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="pergunta-text">"${escapeHtml(p.pergunta)}"</div>
+                            <div class="d-flex gap-2 align-items-center">
+                                ${motivoBadge}
+                                ${p.resolvido ? '<span class="badge bg-success">Resolvida</span>' : ''}
+                            </div>
+                        </div>
+
+                        ${p.query_expandida ? `
+                            <div class="query-expandida mb-2">
+                                <small class="text-muted">Query expandida:</small> ${escapeHtml(p.query_expandida)}
+                            </div>
+                        ` : ''}
+
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div class="text-muted small">
+                                <i class="bi bi-clock me-1"></i>${dataFormatada}
+                                ${p.docs_encontrados > 0 ? `<span class="ms-3"><i class="bi bi-file-text me-1"></i>${p.docs_encontrados} docs encontrados</span>` : ''}
+                                ${p.telefone ? `<span class="ms-3"><i class="bi bi-phone me-1"></i>${p.telefone}</span>` : ''}
+                            </div>
+                            <div>
+                                ${!p.resolvido ? `
+                                    <a href="/admin/rag" class="btn btn-sm btn-outline-primary me-2">
+                                        <i class="bi bi-plus-circle me-1"></i>Criar Documento
+                                    </a>
+                                    <button class="btn btn-sm btn-success" onclick="resolverPergunta(${p.id})">
+                                        <i class="bi bi-check-lg me-1"></i>Marcar Resolvida
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function resolverPergunta(id) {
+        if (!confirm('Marcar esta pergunta como resolvida?')) return;
+
+        try {
+            await apiCall(`/api/admin/perguntas-sem-resposta/${id}/resolver`, 'POST');
+            showToast('Pergunta marcada como resolvida!');
+            carregarStats();
+            carregarPerguntas();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

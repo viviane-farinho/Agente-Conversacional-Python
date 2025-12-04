@@ -355,9 +355,13 @@
                     <i class="bi bi-chat-square-text"></i>
                     <span>Prompts</span>
                 </a>
-                <a href="/admin/rag" class="nav-link {% if 'rag' in request.url.path %}active{% endif %}">
+                <a href="/admin/rag" class="nav-link {% if request.url.path == '/admin/rag' %}active{% endif %}">
                     <i class="bi bi-database"></i>
                     <span>Base de Conhecimento</span>
+                </a>
+                <a href="/admin/perguntas-sem-resposta" class="nav-link {% if 'perguntas-sem-resposta' in request.url.path %}active{% endif %}">
+                    <i class="bi bi-question-circle"></i>
+                    <span>Perguntas s/ Resposta</span>
                 </a>
                 <a href="/admin/pipeline" class="nav-link {% if 'pipeline' in request.url.path %}active{% endif %}">
                     <i class="bi bi-kanban"></i>

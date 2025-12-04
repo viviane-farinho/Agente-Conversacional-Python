@@ -752,6 +752,12 @@ async def admin_configuracoes(request: Request, username: str = Depends(verify_a
     return templates.TemplateResponse("configuracoes.html", {"request": request})
 
 
+@app.get("/admin/perguntas-sem-resposta", response_class=HTMLResponse)
+async def admin_perguntas_sem_resposta(request: Request, username: str = Depends(verify_admin)):
+    """Pagina de perguntas sem resposta (feedback loop RAG)"""
+    return templates.TemplateResponse("perguntas_sem_resposta.html", {"request": request})
+
+
 # --- API Admin ---
 
 @app.get("/api/admin/stats")
@@ -1324,6 +1330,53 @@ async def api_deletar_config(chave: str, username: str = Depends(verify_admin)):
         agenda = await get_agenda_service(db.pool)
         success = await agenda.config_deletar(chave)
         return {"message": "Configuracao restaurada para o default" if success else "Configuracao nao encontrada"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- API Perguntas Sem Resposta (Feedback Loop RAG) ---
+
+@app.get("/api/admin/perguntas-sem-resposta")
+async def api_listar_perguntas_sem_resposta(
+    apenas_nao_resolvidas: bool = True,
+    limit: int = 50,
+    username: str = Depends(verify_admin)
+):
+    """Lista perguntas que o RAG nao conseguiu responder"""
+    try:
+        from src.services.rag import rag_listar_perguntas_sem_resposta
+        perguntas = await rag_listar_perguntas_sem_resposta(apenas_nao_resolvidas, limit)
+        return {"perguntas": perguntas}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/perguntas-sem-resposta/stats")
+async def api_stats_perguntas_sem_resposta(username: str = Depends(verify_admin)):
+    """Estatisticas de perguntas sem resposta"""
+    try:
+        from src.services.rag import rag_contar_perguntas_sem_resposta
+        stats = await rag_contar_perguntas_sem_resposta()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/perguntas-sem-resposta/{pergunta_id}/resolver")
+async def api_resolver_pergunta(
+    pergunta_id: int,
+    documento_id: Optional[int] = None,
+    username: str = Depends(verify_admin)
+):
+    """Marca uma pergunta como resolvida"""
+    try:
+        from src.services.rag import rag_marcar_pergunta_resolvida
+        success = await rag_marcar_pergunta_resolvida(pergunta_id, documento_id)
+        if success:
+            return {"message": "Pergunta marcada como resolvida"}
+        raise HTTPException(status_code=404, detail="Pergunta nao encontrada")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

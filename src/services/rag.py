@@ -144,6 +144,28 @@ async def rag_init_tables() -> bool:
             except Exception:
                 pass
 
+            # Tabela de perguntas sem resposta (para feedback loop)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS perguntas_sem_resposta (
+                    id SERIAL PRIMARY KEY,
+                    pergunta TEXT NOT NULL,
+                    telefone VARCHAR(50),
+                    conversation_id VARCHAR(100),
+                    motivo VARCHAR(100) DEFAULT 'nao_encontrado',
+                    query_expandida TEXT,
+                    docs_encontrados INTEGER DEFAULT 0,
+                    resolvido BOOLEAN DEFAULT FALSE,
+                    documento_criado_id INTEGER REFERENCES empresa_documentos(id),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+            """)
+
+            # Indice para perguntas nao resolvidas
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_perguntas_sem_resposta_resolvido
+                ON perguntas_sem_resposta(resolvido, created_at DESC)
+            """)
+
             _initialized = True
             return True
 
@@ -319,6 +341,188 @@ async def rag_get_categories() -> List[str]:
             ORDER BY categoria
         """)
         return [row["categoria"] for row in rows]
+
+
+# --- Perguntas Sem Resposta (Feedback Loop) ---
+
+def rag_log_pergunta_sem_resposta_sync(
+    pergunta: str,
+    motivo: str = "nao_encontrado",
+    query_expandida: str = None,
+    docs_encontrados: int = 0,
+    telefone: str = None,
+    conversation_id: str = None
+) -> int:
+    """
+    Registra uma pergunta que o RAG nao conseguiu responder (sync)
+
+    Args:
+        pergunta: Pergunta original do usuario
+        motivo: Motivo da falha (nao_encontrado, grading_rejeitou, etc)
+        query_expandida: Query apos rewriting
+        docs_encontrados: Quantidade de docs encontrados antes do grading
+        telefone: Telefone do contato (opcional)
+        conversation_id: ID da conversa (opcional)
+
+    Returns:
+        ID do registro criado
+    """
+    conn_string = _get_connection_string()
+    conn = psycopg2.connect(conn_string)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO perguntas_sem_resposta
+                (pergunta, motivo, query_expandida, docs_encontrados, telefone, conversation_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (pergunta, motivo, query_expandida, docs_encontrados, telefone, conversation_id))
+            result = cur.fetchone()
+            conn.commit()
+            print(f"[RAG] Pergunta sem resposta registrada: '{pergunta[:50]}...' (motivo: {motivo})")
+            return result[0] if result else 0
+    except Exception as e:
+        print(f"[RAG] Erro ao registrar pergunta sem resposta: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+async def rag_log_pergunta_sem_resposta(
+    pergunta: str,
+    motivo: str = "nao_encontrado",
+    query_expandida: str = None,
+    docs_encontrados: int = 0,
+    telefone: str = None,
+    conversation_id: str = None
+) -> int:
+    """
+    Registra uma pergunta que o RAG nao conseguiu responder (async)
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("""
+            INSERT INTO perguntas_sem_resposta
+            (pergunta, motivo, query_expandida, docs_encontrados, telefone, conversation_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
+        """, pergunta, motivo, query_expandida, docs_encontrados, telefone, conversation_id)
+
+        print(f"[RAG] Pergunta sem resposta registrada: '{pergunta[:50]}...' (motivo: {motivo})")
+        return result["id"] if result else 0
+
+
+async def rag_listar_perguntas_sem_resposta(
+    apenas_nao_resolvidas: bool = True,
+    limit: int = 50
+) -> List[dict]:
+    """
+    Lista perguntas que o RAG nao conseguiu responder
+
+    Args:
+        apenas_nao_resolvidas: Se True, retorna apenas nao resolvidas
+        limit: Numero maximo de resultados
+
+    Returns:
+        Lista de perguntas
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        if apenas_nao_resolvidas:
+            rows = await conn.fetch("""
+                SELECT id, pergunta, telefone, conversation_id, motivo,
+                       query_expandida, docs_encontrados, resolvido,
+                       documento_criado_id, created_at
+                FROM perguntas_sem_resposta
+                WHERE resolvido = FALSE
+                ORDER BY created_at DESC
+                LIMIT $1
+            """, limit)
+        else:
+            rows = await conn.fetch("""
+                SELECT id, pergunta, telefone, conversation_id, motivo,
+                       query_expandida, docs_encontrados, resolvido,
+                       documento_criado_id, created_at
+                FROM perguntas_sem_resposta
+                ORDER BY created_at DESC
+                LIMIT $1
+            """, limit)
+
+        return [
+            {
+                "id": row["id"],
+                "pergunta": row["pergunta"],
+                "telefone": row["telefone"],
+                "conversation_id": row["conversation_id"],
+                "motivo": row["motivo"],
+                "query_expandida": row["query_expandida"],
+                "docs_encontrados": row["docs_encontrados"],
+                "resolvido": row["resolvido"],
+                "documento_criado_id": row["documento_criado_id"],
+                "created_at": row["created_at"].isoformat() if row["created_at"] else None
+            }
+            for row in rows
+        ]
+
+
+async def rag_marcar_pergunta_resolvida(
+    pergunta_id: int,
+    documento_criado_id: int = None
+) -> bool:
+    """
+    Marca uma pergunta como resolvida
+
+    Args:
+        pergunta_id: ID da pergunta
+        documento_criado_id: ID do documento criado para resolver (opcional)
+
+    Returns:
+        True se atualizou com sucesso
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        result = await conn.execute("""
+            UPDATE perguntas_sem_resposta
+            SET resolvido = TRUE, documento_criado_id = $2
+            WHERE id = $1
+        """, pergunta_id, documento_criado_id)
+
+        return "UPDATE 1" in result
+
+
+async def rag_contar_perguntas_sem_resposta() -> dict:
+    """
+    Retorna estatisticas de perguntas sem resposta
+
+    Returns:
+        Dict com total, nao_resolvidas, por_motivo
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        total = await conn.fetchval("SELECT COUNT(*) FROM perguntas_sem_resposta")
+        nao_resolvidas = await conn.fetchval(
+            "SELECT COUNT(*) FROM perguntas_sem_resposta WHERE resolvido = FALSE"
+        )
+
+        # Agrupa por motivo
+        rows = await conn.fetch("""
+            SELECT motivo, COUNT(*) as count
+            FROM perguntas_sem_resposta
+            WHERE resolvido = FALSE
+            GROUP BY motivo
+        """)
+        por_motivo = {row["motivo"]: row["count"] for row in rows}
+
+        return {
+            "total": total,
+            "nao_resolvidas": nao_resolvidas,
+            "resolvidas": total - nao_resolvidas,
+            "por_motivo": por_motivo
+        }
 
 
 # --- Busca Semantica ---
