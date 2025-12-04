@@ -7,12 +7,14 @@ from datetime import datetime, timezone, date, timedelta
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Request, HTTPException, BackgroundTasks, Depends, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
+from starlette.middleware.sessions import SessionMiddleware
 import uvicorn
+import secrets
 
 from src.config import Config
 from src.services.database import get_db_service
@@ -302,8 +304,31 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Middleware de sessao para autenticacao
+app.add_middleware(SessionMiddleware, secret_key=secrets.token_hex(32))
+
 # Templates
 templates = Jinja2Templates(directory="templates")
+
+# --- Configuracoes de Autenticacao ---
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "mudaradmin123"
+
+
+def get_current_user(request: Request):
+    """Verifica se o usuario esta autenticado"""
+    user = request.session.get("user")
+    if not user:
+        return None
+    return user
+
+
+def require_auth(request: Request):
+    """Dependency para exigir autenticacao"""
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Nao autenticado")
+    return user
 
 
 # --- Processamento de Mensagens ---
@@ -508,6 +533,37 @@ async def root():
 async def health_check():
     """Verificacao de saude do servico"""
     return {"status": "healthy"}
+
+
+# --- Rotas de Autenticacao ---
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Pagina de login"""
+    # Se ja estiver logado, redireciona para o admin
+    if get_current_user(request):
+        return RedirectResponse(url="/admin", status_code=302)
+    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+
+
+@app.post("/login", response_class=HTMLResponse)
+async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    """Processa o login"""
+    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        request.session["user"] = {"username": username}
+        return RedirectResponse(url="/admin", status_code=302)
+
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "error": "Usuario ou senha incorretos"
+    })
+
+
+@app.get("/logout")
+async def logout(request: Request):
+    """Faz logout do usuario"""
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=302)
 
 
 # --- API de Modelos OpenRouter ---
@@ -988,6 +1044,8 @@ async def buscar_documentos(busca: BuscaDocumento):
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request):
     """Dashboard administrativo"""
+    if not get_current_user(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "data_atual": datetime.now().strftime("%d/%m/%Y")
@@ -997,36 +1055,48 @@ async def admin_dashboard(request: Request):
 @app.get("/admin/agenda", response_class=HTMLResponse)
 async def admin_agenda(request: Request):
     """Pagina de agenda"""
+    if not get_current_user(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("agenda.html", {"request": request})
 
 
 @app.get("/admin/profissionais", response_class=HTMLResponse)
 async def admin_profissionais(request: Request):
     """Pagina de profissionais"""
+    if not get_current_user(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("profissionais.html", {"request": request})
 
 
 @app.get("/admin/agentes", response_class=HTMLResponse)
 async def admin_agentes(request: Request):
     """Pagina de agentes do admin"""
+    if not get_current_user(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("agentes.html", {"request": request})
 
 
 @app.get("/admin/rag", response_class=HTMLResponse)
 async def admin_rag(request: Request):
     """Pagina de base de conhecimento"""
+    if not get_current_user(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("rag.html", {"request": request})
 
 
 @app.get("/admin/prompts", response_class=HTMLResponse)
 async def admin_prompts(request: Request):
     """Pagina de prompts"""
+    if not get_current_user(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("prompts.html", {"request": request})
 
 
 @app.get("/admin/pipeline", response_class=HTMLResponse)
 async def admin_pipeline(request: Request):
     """Pagina de pipeline de atendimento"""
+    if not get_current_user(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("pipeline.html", {"request": request})
 
 
@@ -2090,6 +2160,8 @@ async def api_configurar_agente_vinculavel(agente_id: int, config: AgenteVincula
 @app.get("/admin/tenants", response_class=HTMLResponse)
 async def admin_tenants_page(request: Request):
     """Pagina de gerenciamento de tenants"""
+    if not get_current_user(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("tenants.html", {"request": request})
 
 
