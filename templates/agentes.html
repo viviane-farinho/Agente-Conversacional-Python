@@ -304,6 +304,73 @@
         background-clip: text;
         -webkit-text-fill-color: transparent;
     }
+
+    /* Theme-Aware Modal Styles */
+    .modal-glass-content {
+        background: var(--bg-body);
+        /* Matches System Main Background */
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: var(--glass-border);
+        box-shadow: var(--glass-shadow);
+        color: var(--text-primary);
+        overflow: hidden;
+        /* Ensure header bg respects rounded corners */
+    }
+
+    .modal-glass-header {
+        background: var(--bg-sidebar);
+        /* Matches System Header/Sidebar Background */
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .card-glass-neon {
+        background: var(--bg-card);
+        border: var(--glass-border);
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .card-glass-neon:hover {
+        background: var(--hover-bg);
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+    }
+
+    .icon-box-glass {
+        background: var(--hover-bg);
+        border: var(--glass-border);
+        color: var(--text-primary);
+    }
+
+    .text-theme-primary {
+        color: var(--text-primary) !important;
+    }
+
+    .text-theme-secondary {
+        color: var(--text-secondary) !important;
+    }
+
+    /* Force Dark Cards even in Light Theme */
+    .card-always-dark {
+        background: #161b22 !important;
+        /* Dark background */
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        color: white !important;
+    }
+
+    .card-always-dark h6 {
+        color: white !important;
+    }
+
+    .card-always-dark p,
+    .card-always-dark .text-theme-secondary {
+        color: rgba(255, 255, 255, 0.7) !important;
+    }
+
+    .card-always-dark:hover {
+        background: #1c2128 !important;
+    }
 </style>
 {% endblock %}
 
@@ -580,39 +647,52 @@
 
 <!-- Modal Knowledge Base (List) -->
 <div class="modal fade" id="modalKnowledgeBase" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content"
-            style="background: rgba(10, 10, 15, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 0 40px rgba(0,0,0,0.5); color: white;">
-            <div class="modal-header border-bottom border-secondary">
-                <div>
-                    <h5 class="modal-title fw-bold">Base de Conhecimento</h5>
-                    <p class="text-white-50 mb-0 small">Gerencie os documentos que sua IA usa para responder.</p>
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 modal-glass-content">
+
+            <!-- Header Styled like Dashboard -->
+            <div class="modal-header modal-glass-header p-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="icon-box rounded-circle d-flex align-items-center justify-content-center icon-box-glass"
+                        style="width: 56px; height: 56px;">
+                        <i class="bi bi-database-fill-gear text-primary" style="font-size: 1.6rem;"></i>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold mb-0 text-theme-primary">Base de Conhecimento</h4>
+                        <p class="text-theme-secondary mb-0 small">Gerencie os documentos que sua IA usa para aprender.
+                        </p>
+                    </div>
                 </div>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-glass btn-sm" onclick="novoDocumentoKB()">
-                        <i class="bi bi-plus-lg me-1"></i> Novo Documento
+                    <button class="btn btn-outline-primary" onclick="novoDocumentoKB()">
+                        <i class="bi bi-plus-lg me-2"></i>Novo Documento
                     </button>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
             </div>
-            <div class="modal-body p-0">
+
+            <div class="modal-body p-4">
                 <!-- Loading State -->
                 <div id="kbLoading" class="text-center py-5">
-                    <div class="spinner-border text-primary mb-2" role="status"></div>
-                    <p class="text-white-50 mb-0">Carregando documentos...</p>
+                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                    </div>
+                    <p class="text-theme-secondary mb-0 fs-5">Carregando documentos...</p>
                 </div>
 
                 <!-- Empty State -->
                 <div id="kbEmpty" class="text-center py-5 d-none">
-                    <i class="bi bi-folder2-open display-4 text-white-50 mb-3"></i>
-                    <p class="text-white-50 mb-3">Nenhum documento encontrado.</p>
-                    <button class="btn btn-primary btn-sm" onclick="novoDocumentoKB()">
+                    <div class="mb-4">
+                        <i class="bi bi-folder2-open display-1 text-theme-secondary" style="opacity: 0.3;"></i>
+                    </div>
+                    <h5 class="text-theme-primary fw-bold">Nenhum documento encontrado</h5>
+                    <p class="text-theme-secondary mb-4">Comece adicionando informações para sua IA.</p>
+                    <button class="btn btn-primary px-4 py-2 rounded-pill" onclick="novoDocumentoKB()">
                         Criar Primeiro Documento
                     </button>
                 </div>
 
-                <!-- Document List -->
-                <div id="kbList" class="list-group list-group-flush d-none">
+                <!-- Document Grid (Cards instead of List) -->
+                <div id="kbList" class="row g-3 d-none">
                     <!-- Items will be injected here via JS -->
                 </div>
             </div>
@@ -623,32 +703,32 @@
 <!-- Modal Document Editor -->
 <div class="modal fade" id="modalDocumentoEditor" tabindex="-1">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content"
-            style="background: rgba(10, 10, 15, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 0 40px rgba(0,0,0,0.5); color: white;">
-            <div class="modal-header border-bottom border-secondary">
-                <h5 class="modal-title fw-bold" id="modalDocTitle">Novo Documento</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 modal-glass-content">
+            <div class="modal-header modal-glass-header">
+                <h5 class="modal-title fw-bold text-theme-primary" id="modalDocTitle">Novo Documento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="formDocumentoKB">
                     <input type="hidden" id="docId">
                     <div class="row">
                         <div class="col-md-8 mb-3">
-                            <label class="form-label text-white-50">Título *</label>
-                            <input type="text" class="form-control bg-dark text-white border-secondary" id="docTitulo"
-                                required placeholder="Ex: Política de Trocas">
+                            <label class="form-label text-theme-secondary">Título *</label>
+                            <input type="text" class="form-control bg-transparent text-theme-primary border-secondary"
+                                id="docTitulo" required placeholder="Ex: Política de Trocas">
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label class="form-label text-white-50">Categoria *</label>
-                            <input type="text" class="form-control bg-dark text-white border-secondary"
+                            <label class="form-label text-theme-secondary">Categoria *</label>
+                            <input type="text" class="form-control bg-transparent text-theme-primary border-secondary"
                                 id="docCategoria" required placeholder="Ex: institucional">
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-white-50">Conteúdo *</label>
-                        <textarea class="form-control bg-dark text-white border-secondary" id="docConteudo" rows="10"
-                            required placeholder="Digite o conteúdo que a IA deve aprender..."></textarea>
-                        <small class="text-white-50">Este conteúdo será indexado para busca semântica.</small>
+                        <label class="form-label text-theme-secondary">Conteúdo *</label>
+                        <textarea class="form-control bg-transparent text-theme-primary border-secondary"
+                            id="docConteudo" rows="10" required
+                            placeholder="Digite o conteúdo que a IA deve aprender..."></textarea>
+                        <small class="text-theme-secondary">Este conteúdo será indexado para busca semântica.</small>
                     </div>
                 </form>
             </div>
@@ -1535,27 +1615,53 @@
             }
 
             list.innerHTML = kbDocuments.map(doc => `
-                <div class="list-group-item list-group-item-action bg-transparent border-secondary text-white d-flex justify-content-between align-items-center px-3 py-3">
-                    <div class="d-flex align-items-center gap-3 overflow-hidden">
-                        <div class="rounded-circle bg-dark d-flex align-items-center justify-content-center flex-shrink-0" 
-                             style="width: 40px; height: 40px; border: 1px solid rgba(255,255,255,0.1);">
-                            <i class="bi bi-file-text text-white-50"></i>
-                        </div>
-                        <div class="overflow-hidden">
-                            <h6 class="mb-0 text-truncate">${doc.titulo}</h6>
-                            <div class="d-flex gap-2 align-items-center mt-1">
-                                <span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary border-opacity-25" 
-                                      style="font-size: 0.7rem;">${doc.categoria}</span>
-                                <small class="text-white-50" style="font-size: 0.75rem;">
-                                    ${new Date(doc.created_at).toLocaleDateString('pt-BR')}
-                                </small>
+                <div class="col-md-6">
+                    <div class="p-3 h-100 rounded-4 position-relative overflow-hidden group-hover-border card-always-dark" 
+                         style="--hover-border: var(--primary-color); transition: all 0.3s ease; cursor: pointer;"
+                         onmouseover="this.style.borderColor='var(--primary-color)'; this.style.transform='translateY(-2px)';"
+                         onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.08)'; this.style.transform='translateY(0)';"
+                         onclick="editarDocumentoKB(${doc.id})">
+                        
+                        <!-- Glow Effect 1: Purple (Left) -->
+                        <div class="position-absolute top-50 start-0 translate-middle-y rounded-circle" 
+                             style="width: 180px; height: 180px; background: radial-gradient(circle, rgba(217, 70, 239, 0.45) 0%, transparent 70%); filter: blur(30px); transform: translate(-30%, 0); pointer-events: none;"></div>
+
+                        <!-- Glow Effect 2: Blue (Center) -->
+                        <div class="position-absolute top-50 start-50 translate-middle rounded-circle" 
+                             style="width: 180px; height: 180px; background: radial-gradient(circle, rgba(96, 165, 250, 0.45) 0%, transparent 70%); filter: blur(30px); pointer-events: none;"></div>
+
+                        <!-- Glow Effect 3: Green (Right) -->
+                        <div class="position-absolute top-50 end-0 translate-middle-y rounded-circle" 
+                             style="width: 180px; height: 180px; background: radial-gradient(circle, rgba(74, 222, 128, 0.45) 0%, transparent 70%); filter: blur(30px); transform: translate(30%, 0); pointer-events: none;"></div>
+
+                        <div class="d-flex align-items-start gap-3 position-relative z-1">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" 
+                                 style="width: 48px; height: 48px; background: var(--primary-color); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 0 15px rgba(0, 113, 227, 0.4);">
+                                <i class="bi bi-file-earmark-text text-white" style="font-size: 1.2rem;"></i>
+                            </div>
+                            <div class="flex-grow-1 overflow-hidden">
+                                <h6 class="text-theme-primary fw-bold mb-1 text-truncate">${doc.titulo}</h6>
+                                <div class="d-flex flex-wrap gap-2 mb-2">
+                                    <span class="badge rounded-pill" 
+                                          style="background: var(--primary-color); color: white; border: 1px solid rgba(255, 255, 255, 0.2); font-weight: 500; box-shadow: 0 0 10px rgba(0, 113, 227, 0.3);">
+                                        ${doc.categoria}
+                                    </span>
+                                    <span class="text-theme-secondary small d-flex align-items-center gap-1">
+                                        <i class="bi bi-clock" style="font-size: 0.75rem;"></i>
+                                        ${new Date(doc.created_at).toLocaleDateString('pt-BR')}
+                                    </span>
+                                </div>
+                                <p class="text-theme-secondary small mb-0 text-truncate" style="max-width: 100%;">
+                                    ${doc.conteudo.substring(0, 60)}...
+                                </p>
+                            </div>
+                            <div class="d-flex flex-column gap-2 opacity-0 group-hover-opacity" style="transition: opacity 0.2s;">
+                                <button class="btn btn-icon btn-sm text-theme-secondary hover-primary">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
-                    <button class="btn btn-icon btn-sm text-white-50 hover-white" 
-                            onclick="editarDocumentoKB(${doc.id})">
-                        <i class="bi bi-pencil"></i>
-                    </button>
                 </div>
             `).join('');
 

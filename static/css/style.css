@@ -45,7 +45,7 @@
     /* Deep dark blue/gray */
     --bg-sidebar: #161b22;
     /* Lighter/Distinct gray */
-    --bg-card: rgba(22, 27, 34, 0.7);
+    --bg-card: rgba(255, 255, 255, 0.04);
     --bg-glass: #161b22;
     --glass-border: 1px solid rgba(255, 255, 255, 0.08);
     --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
