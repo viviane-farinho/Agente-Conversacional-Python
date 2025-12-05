@@ -19,17 +19,35 @@ def _get_connection():
     return psycopg2.connect(conn_string)
 
 
-def _listar_profissionais_sync():
-    """Lista profissionais (sincrono)"""
+def _get_business_type_sync():
+    """Obtem o business_type da configuracao do sistema (sincrono)"""
     conn = _get_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
-                SELECT id, nome, especialidade, cargo, ativo
-                FROM profissionais
-                WHERE ativo = true
-                ORDER BY nome
+                SELECT value FROM system_config WHERE key = 'business_type'
             """)
+            row = cur.fetchone()
+            return row["value"] if row else "clinica"
+    finally:
+        conn.close()
+
+
+def _listar_profissionais_sync(business_type: str = None):
+    """Lista profissionais (sincrono)"""
+    conn = _get_connection()
+    try:
+        # Se nao foi passado business_type, pega da configuracao
+        if business_type is None:
+            business_type = _get_business_type_sync()
+
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT id, nome, especialidade, cargo, business_type, ativo
+                FROM profissionais
+                WHERE ativo = true AND business_type = %s
+                ORDER BY nome
+            """, (business_type,))
             return [dict(row) for row in cur.fetchall()]
     finally:
         conn.close()

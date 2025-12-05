@@ -371,7 +371,7 @@
         <!-- Knowledge Base (Swapped to Top) -->
         <div class="col-md-4">
             <div class="card-new card-knowledge h-100 p-3 d-flex flex-column align-items-center justify-content-center"
-                onclick="window.location.href='/admin/rag'" style="cursor: pointer;">
+                onclick="abrirModalKnowledgeBase()" style="cursor: pointer;">
                 <div class="icon-box rounded-circle d-flex align-items-center justify-content-center mb-2"
                     style="width: 56px; height: 56px;">
                     <i class="bi bi-database-fill-gear text-white"
@@ -501,6 +501,166 @@
                     </div>
                     <button class="btn btn-glass btn-sm" onclick="configurarAgente('vendas')">Configurar</button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Profissionais Section (Separate Container) -->
+<div class="agents-dashboard pt-4 pb-4 px-4 mt-4">
+    <div class="profissionais-section px-4 pb-4">
+        <div class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="icon-box rounded-circle d-flex align-items-center justify-content-center"
+                        style="width: 48px; height: 48px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.3);">
+                        <i class="bi bi-people-fill text-white"
+                            style="font-size: 1.5rem; filter: drop-shadow(0 0 10px #06b6d4);"></i>
+                    </div>
+                    <div>
+                        <h3 class="fw-bold mb-0 text-white">Meus Profissionais</h3>
+                        <p class="text-white-50 mb-0 small">Profissionais disponíveis para agendamento</p>
+                    </div>
+                </div>
+                <button class="btn btn-glass btn-sm" onclick="abrirModalNovoProfissional()">
+                    <i class="bi bi-plus-lg me-1"></i> Novo Profissional
+                </button>
+            </div>
+
+            <!-- Lista de Profissionais -->
+            <div id="listaProfissionaisCards" class="row g-3">
+                <div class="col-12 text-center text-white-50 py-4">
+                    <i class="bi bi-hourglass-split"></i> Carregando profissionais...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Novo/Editar Profissional -->
+<div class="modal fade" id="modalProfissionalMulti" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #333; color: white;">
+            <div class="modal-header border-bottom border-secondary">
+                <h5 class="modal-title fw-bold" id="modalProfMultiTitle">Novo Profissional</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formProfissionalMulti">
+                    <input type="hidden" id="profMultiId">
+                    <div class="mb-3">
+                        <label class="form-label text-white-50">Nome Completo *</label>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" id="profMultiNome"
+                            required placeholder="Ex: Rafael Oliveira">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-white-50">Cargo</label>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" id="profMultiCargo"
+                            placeholder="Ex: Mentor, Consultor, Especialista">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-white-50">Especialidade</label>
+                        <input type="text" class="form-control bg-dark text-white border-secondary"
+                            id="profMultiEspecialidade" placeholder="Ex: Marketing Digital, Vendas, Finanças">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top border-secondary">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger d-none" id="btnDesativarMulti"
+                    onclick="desativarProfissionalMulti()">
+                    <i class="bi bi-x-circle me-1"></i> Desativar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="salvarProfissionalMulti()">
+                    <i class="bi bi-save me-1"></i> Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Knowledge Base (List) -->
+<div class="modal fade" id="modalKnowledgeBase" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content"
+            style="background: rgba(10, 10, 15, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 0 40px rgba(0,0,0,0.5); color: white;">
+            <div class="modal-header border-bottom border-secondary">
+                <div>
+                    <h5 class="modal-title fw-bold">Base de Conhecimento</h5>
+                    <p class="text-white-50 mb-0 small">Gerencie os documentos que sua IA usa para responder.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-glass btn-sm" onclick="novoDocumentoKB()">
+                        <i class="bi bi-plus-lg me-1"></i> Novo Documento
+                    </button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+            <div class="modal-body p-0">
+                <!-- Loading State -->
+                <div id="kbLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary mb-2" role="status"></div>
+                    <p class="text-white-50 mb-0">Carregando documentos...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div id="kbEmpty" class="text-center py-5 d-none">
+                    <i class="bi bi-folder2-open display-4 text-white-50 mb-3"></i>
+                    <p class="text-white-50 mb-3">Nenhum documento encontrado.</p>
+                    <button class="btn btn-primary btn-sm" onclick="novoDocumentoKB()">
+                        Criar Primeiro Documento
+                    </button>
+                </div>
+
+                <!-- Document List -->
+                <div id="kbList" class="list-group list-group-flush d-none">
+                    <!-- Items will be injected here via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Document Editor -->
+<div class="modal fade" id="modalDocumentoEditor" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content"
+            style="background: rgba(10, 10, 15, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 0 40px rgba(0,0,0,0.5); color: white;">
+            <div class="modal-header border-bottom border-secondary">
+                <h5 class="modal-title fw-bold" id="modalDocTitle">Novo Documento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formDocumentoKB">
+                    <input type="hidden" id="docId">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label text-white-50">Título *</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" id="docTitulo"
+                                required placeholder="Ex: Política de Trocas">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-white-50">Categoria *</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary"
+                                id="docCategoria" required placeholder="Ex: institucional">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-white-50">Conteúdo *</label>
+                        <textarea class="form-control bg-dark text-white border-secondary" id="docConteudo" rows="10"
+                            required placeholder="Digite o conteúdo que a IA deve aprender..."></textarea>
+                        <small class="text-white-50">Este conteúdo será indexado para busca semântica.</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top border-secondary">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger d-none" id="btnExcluirDoc" onclick="excluirDocumentoKB()">
+                    <i class="bi bi-trash me-1"></i> Excluir
+                </button>
+                <button type="button" class="btn btn-primary" onclick="salvarDocumentoKB()">
+                    <i class="bi bi-save me-1"></i> Salvar
+                </button>
             </div>
         </div>
     </div>
@@ -1175,6 +1335,294 @@
 
         const modal = new bootstrap.Modal(document.getElementById('configModal'));
         modal.show();
+    }
+
+    // ================= PROFISSIONAIS =================
+    let profissionaisMulti = [];
+    const BUSINESS_TYPE = 'infoprodutor';  // Tipo de negócio para esta tela
+
+    // Carrega profissionais ao iniciar
+    document.addEventListener('DOMContentLoaded', function () {
+        carregarProfissionaisMulti();
+    });
+
+    async function carregarProfissionaisMulti() {
+        try {
+            // Filtra por business_type=infoprodutor
+            const data = await apiCall(`/api/admin/profissionais?apenas_ativos=false&business_type=${BUSINESS_TYPE}`);
+            profissionaisMulti = data.profissionais || [];
+            renderizarProfissionaisCards();
+        } catch (error) {
+            console.error('Erro ao carregar profissionais:', error);
+            document.getElementById('listaProfissionaisCards').innerHTML = `
+                <div class="col-12 text-center text-white-50 py-4">
+                    <i class="bi bi-exclamation-circle"></i> Erro ao carregar profissionais
+                </div>
+            `;
+        }
+    }
+
+    function renderizarProfissionaisCards() {
+        const container = document.getElementById('listaProfissionaisCards');
+
+        if (profissionaisMulti.length === 0) {
+            container.innerHTML = `
+                <div class="col-12 text-center text-white-50 py-4">
+                    <i class="bi bi-person-plus"></i> Nenhum profissional cadastrado<br>
+                    <small>Clique em "Novo Profissional" para adicionar</small>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = profissionaisMulti.map(p => `
+            <div class="col-md-4 col-lg-3">
+                <div class="p-3 rounded-4 h-100 ${!p.ativo ? 'opacity-50' : ''}"
+                    style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.2s; cursor: pointer;"
+                    onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.borderColor='rgba(6, 182, 212, 0.5)';"
+                    onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'; this.style.borderColor='rgba(255, 255, 255, 0.1)';"
+                    onclick="editarProfissionalMulti(${p.id})">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                            style="width: 50px; height: 50px; min-width: 50px; background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(6, 182, 212, 0.05)); border: 1px solid rgba(6, 182, 212, 0.3);">
+                            <i class="bi bi-person text-white" style="font-size: 1.3rem;"></i>
+                        </div>
+                        <div class="flex-grow-1 overflow-hidden">
+                            <h6 class="text-white mb-1 text-truncate fw-bold">${p.nome}</h6>
+                            <small class="text-white-50">${p.cargo || p.especialidade || 'Profissional'}</small>
+                            <div class="mt-1">
+                                <span class="badge ${p.ativo ? 'bg-success' : 'bg-secondary'}" style="font-size: 0.65rem;">
+                                    ${p.ativo ? 'Ativo' : 'Inativo'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function abrirModalNovoProfissional() {
+        document.getElementById('modalProfMultiTitle').textContent = 'Novo Profissional';
+        document.getElementById('formProfissionalMulti').reset();
+        document.getElementById('profMultiId').value = '';
+        document.getElementById('btnDesativarMulti').classList.add('d-none');
+        new bootstrap.Modal(document.getElementById('modalProfissionalMulti')).show();
+    }
+
+    function editarProfissionalMulti(id) {
+        const prof = profissionaisMulti.find(p => p.id === id);
+        if (!prof) return;
+
+        document.getElementById('modalProfMultiTitle').textContent = 'Editar Profissional';
+        document.getElementById('profMultiId').value = prof.id;
+        document.getElementById('profMultiNome').value = prof.nome;
+        document.getElementById('profMultiCargo').value = prof.cargo || '';
+        document.getElementById('profMultiEspecialidade').value = prof.especialidade || '';
+        document.getElementById('btnDesativarMulti').classList.toggle('d-none', !prof.ativo);
+
+        new bootstrap.Modal(document.getElementById('modalProfissionalMulti')).show();
+    }
+
+    async function salvarProfissionalMulti() {
+        const id = document.getElementById('profMultiId').value;
+        const data = {
+            nome: document.getElementById('profMultiNome').value,
+            cargo: document.getElementById('profMultiCargo').value || null,
+            especialidade: document.getElementById('profMultiEspecialidade').value || null,
+            business_type: BUSINESS_TYPE  // Sempre cria como infoprodutor
+        };
+
+        if (!data.nome) {
+            showToast('O nome é obrigatório', 'warning');
+            return;
+        }
+
+        try {
+            if (id) {
+                await apiCall(`/api/admin/profissionais/${id}`, 'PUT', data);
+                showToast('Profissional atualizado com sucesso!');
+            } else {
+                await apiCall('/api/admin/profissionais', 'POST', data);
+                showToast('Profissional criado com sucesso!');
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('modalProfissionalMulti')).hide();
+            carregarProfissionaisMulti();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+
+    async function desativarProfissionalMulti() {
+        const id = document.getElementById('profMultiId').value;
+        if (!id) return;
+        if (!confirm('Tem certeza que deseja desativar este profissional? Ele não aparecerá mais para agendamentos.')) return;
+
+        try {
+            await apiCall(`/api/admin/profissionais/${id}`, 'DELETE');
+            showToast('Profissional desativado!');
+            bootstrap.Modal.getInstance(document.getElementById('modalProfissionalMulti')).hide();
+            carregarProfissionaisMulti();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+        }
+    }
+    // ================= KNOWLEDGE BASE =================
+    let kbModal = null;
+    let docEditorModal = null;
+    let currentDocId = null;
+    let kbDocuments = [];
+
+    function abrirModalKnowledgeBase() {
+        if (!kbModal) {
+            kbModal = new bootstrap.Modal(document.getElementById('modalKnowledgeBase'));
+        }
+        kbModal.show();
+        carregarDocumentosKB();
+    }
+
+    function novoDocumentoKB() {
+        currentDocId = null;
+        document.getElementById('formDocumentoKB').reset();
+        document.getElementById('docId').value = '';
+        document.getElementById('modalDocTitle').innerText = 'Novo Documento';
+        document.getElementById('btnExcluirDoc').classList.add('d-none');
+
+        if (!docEditorModal) {
+            docEditorModal = new bootstrap.Modal(document.getElementById('modalDocumentoEditor'));
+        }
+        docEditorModal.show();
+    }
+
+    async function editarDocumentoKB(id) {
+        currentDocId = id;
+        const doc = kbDocuments.find(d => d.id === id);
+        if (!doc) return;
+
+        document.getElementById('docId').value = doc.id;
+        document.getElementById('docTitulo').value = doc.titulo;
+        document.getElementById('docCategoria').value = doc.categoria;
+        document.getElementById('docConteudo').value = doc.conteudo;
+
+        document.getElementById('modalDocTitle').innerText = 'Editar Documento';
+        document.getElementById('btnExcluirDoc').classList.remove('d-none');
+
+        if (!docEditorModal) {
+            docEditorModal = new bootstrap.Modal(document.getElementById('modalDocumentoEditor'));
+        }
+        docEditorModal.show();
+    }
+
+    async function carregarDocumentosKB() {
+        const loading = document.getElementById('kbLoading');
+        const empty = document.getElementById('kbEmpty');
+        const list = document.getElementById('kbList');
+
+        loading.classList.remove('d-none');
+        empty.classList.add('d-none');
+        list.classList.add('d-none');
+
+        try {
+            const response = await fetch('/api/documentos');
+            const data = await response.json();
+            kbDocuments = data.documentos || [];
+
+            loading.classList.add('d-none');
+
+            if (kbDocuments.length === 0) {
+                empty.classList.remove('d-none');
+                return;
+            }
+
+            list.innerHTML = kbDocuments.map(doc => `
+                <div class="list-group-item list-group-item-action bg-transparent border-secondary text-white d-flex justify-content-between align-items-center px-3 py-3">
+                    <div class="d-flex align-items-center gap-3 overflow-hidden">
+                        <div class="rounded-circle bg-dark d-flex align-items-center justify-content-center flex-shrink-0" 
+                             style="width: 40px; height: 40px; border: 1px solid rgba(255,255,255,0.1);">
+                            <i class="bi bi-file-text text-white-50"></i>
+                        </div>
+                        <div class="overflow-hidden">
+                            <h6 class="mb-0 text-truncate">${doc.titulo}</h6>
+                            <div class="d-flex gap-2 align-items-center mt-1">
+                                <span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary border-opacity-25" 
+                                      style="font-size: 0.7rem;">${doc.categoria}</span>
+                                <small class="text-white-50" style="font-size: 0.75rem;">
+                                    ${new Date(doc.created_at).toLocaleDateString('pt-BR')}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-icon btn-sm text-white-50 hover-white" 
+                            onclick="editarDocumentoKB(${doc.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            list.classList.remove('d-none');
+
+        } catch (error) {
+            console.error(error);
+            loading.classList.add('d-none');
+            showToast('Erro ao carregar documentos', 'error');
+        }
+    }
+
+    async function salvarDocumentoKB() {
+        const id = document.getElementById('docId').value;
+        const titulo = document.getElementById('docTitulo').value;
+        const categoria = document.getElementById('docCategoria').value;
+        const conteudo = document.getElementById('docConteudo').value;
+
+        if (!titulo || !categoria || !conteudo) {
+            showToast('Preencha todos os campos obrigatórios', 'warning');
+            return;
+        }
+
+        try {
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `/api/documentos/${id}` : '/api/documentos';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ titulo, categoria, conteudo })
+            });
+
+            if (response.ok) {
+                showToast('Documento salvo com sucesso!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('modalDocumentoEditor')).hide();
+                carregarDocumentosKB(); // Refresh list
+            } else {
+                throw new Error('Falha ao salvar');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Erro ao salvar documento', 'error');
+        }
+    }
+
+    async function excluirDocumentoKB() {
+        if (!currentDocId) return;
+        if (!confirm('Tem certeza que deseja excluir este documento?')) return;
+
+        try {
+            const response = await fetch(`/api/documentos/${currentDocId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast('Documento excluído!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('modalDocumentoEditor')).hide();
+                carregarDocumentosKB(); // Refresh list
+            } else {
+                throw new Error('Falha ao excluir');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Erro ao excluir documento', 'error');
+        }
     }
 </script>
 {% endblock %}

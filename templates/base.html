@@ -221,6 +221,23 @@
                 document.querySelector('.sidebar').classList.remove('collapsed');
                 document.querySelector('.main-content').classList.remove('expanded');
             }
+
+            // Enable sidebar scroll when mouse is over it
+            const sidebar = document.querySelector('.sidebar');
+            if (sidebar) {
+                sidebar.addEventListener('wheel', function(e) {
+                    const scrollTop = this.scrollTop;
+                    const scrollHeight = this.scrollHeight;
+                    const height = this.clientHeight;
+                    const delta = e.deltaY;
+
+                    // Check if we can scroll
+                    if ((delta > 0 && scrollTop + height < scrollHeight) ||
+                        (delta < 0 && scrollTop > 0)) {
+                        e.stopPropagation();
+                    }
+                }, { passive: true });
+            }
         });
 
         // Toast helper

@@ -77,12 +77,14 @@ class ProfissionalBase(BaseModel):
     nome: str
     cargo: Optional[str] = None
     especialidade: Optional[str] = None
+    business_type: Optional[str] = "infoprodutor"
 
 
 class ProfissionalUpdate(BaseModel):
     nome: Optional[str] = None
     cargo: Optional[str] = None
     especialidade: Optional[str] = None
+    business_type: Optional[str] = None
     ativo: Optional[bool] = None
 
 
@@ -1068,12 +1070,19 @@ async def admin_proximos_agendamentos(limit: int = 5, username: str = Depends(ve
 # --- API Profissionais ---
 
 @app.get("/api/admin/profissionais")
-async def api_listar_profissionais(apenas_ativos: bool = True, username: str = Depends(verify_admin)):
-    """Lista profissionais"""
+async def api_listar_profissionais(
+    apenas_ativos: bool = True,
+    business_type: Optional[str] = None,
+    username: str = Depends(verify_admin)
+):
+    """Lista profissionais filtrados por business_type"""
     try:
         db = await get_db_service()
         agenda = await get_agenda_service(db.pool)
-        profissionais = await agenda.listar_profissionais(apenas_ativos=apenas_ativos)
+        profissionais = await agenda.listar_profissionais(
+            apenas_ativos=apenas_ativos,
+            business_type=business_type
+        )
         return {"profissionais": profissionais}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1088,7 +1097,8 @@ async def api_criar_profissional(prof: ProfissionalBase, username: str = Depends
         prof_id = await agenda.criar_profissional(
             nome=prof.nome,
             cargo=prof.cargo,
-            especialidade=prof.especialidade
+            especialidade=prof.especialidade,
+            business_type=prof.business_type
         )
         return {"id": prof_id, "message": "Profissional criado"}
     except Exception as e:

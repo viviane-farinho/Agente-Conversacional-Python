@@ -83,12 +83,36 @@ body {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-right: var(--glass-border);
-    min-height: 100vh;
+    height: 100vh;
     position: fixed;
+    top: 0;
+    left: 0;
     width: 280px;
     padding-top: 2rem;
+    padding-bottom: 2rem;
     z-index: 1000;
-    transition: all 0.3s ease;
+    transition: width 0.3s ease, background 0.3s ease;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+}
+
+/* Scrollbar styling for sidebar */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
 }
 
 .sidebar .nav-link {

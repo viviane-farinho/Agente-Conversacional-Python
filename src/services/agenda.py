@@ -101,13 +101,20 @@ async def agenda_init_tables() -> None:
         except Exception as e:
             print(f"Migration warning: {e}")
 
+        # Migration: adiciona coluna business_type na tabela profissionais
+        try:
+            await conn.execute("ALTER TABLE profissionais ADD COLUMN IF NOT EXISTS business_type VARCHAR(50) DEFAULT 'clinica'")
+        except Exception as e:
+            print(f"Migration profissionais warning: {e}")
+
 
 # --- Profissionais ---
 
 async def agenda_criar_profissional(
     nome: str,
     especialidade: str = None,
-    cargo: str = None
+    cargo: str = None,
+    business_type: str = "clinica"
 ) -> int:
     """
     Cria um novo profissional
@@ -116,6 +123,7 @@ async def agenda_criar_profissional(
         nome: Nome do profissional
         especialidade: Especialidade
         cargo: Cargo
+        business_type: Tipo de negócio (clinica, infoprodutor, etc)
 
     Returns:
         ID do profissional criado
@@ -124,19 +132,20 @@ async def agenda_criar_profissional(
 
     async with pool.acquire() as conn:
         result = await conn.fetchrow("""
-            INSERT INTO profissionais (nome, especialidade, cargo)
-            VALUES ($1, $2, $3)
+            INSERT INTO profissionais (nome, especialidade, cargo, business_type)
+            VALUES ($1, $2, $3, $4)
             RETURNING id
-        """, nome, especialidade, cargo)
+        """, nome, especialidade, cargo, business_type)
         return result["id"]
 
 
-async def agenda_listar_profissionais(apenas_ativos: bool = True) -> List[dict]:
+async def agenda_listar_profissionais(apenas_ativos: bool = True, business_type: str = None) -> List[dict]:
     """
     Lista todos os profissionais
 
     Args:
         apenas_ativos: Se True, lista apenas ativos
+        business_type: Filtrar por tipo de negócio (clinica, infoprodutor, etc)
 
     Returns:
         Lista de profissionais
@@ -144,19 +153,25 @@ async def agenda_listar_profissionais(apenas_ativos: bool = True) -> List[dict]:
     pool = await db_get_pool()
 
     async with pool.acquire() as conn:
+        query = """
+            SELECT id, nome, especialidade, cargo, business_type, ativo, created_at
+            FROM profissionais
+            WHERE 1=1
+        """
+        params = []
+        param_count = 0
+
         if apenas_ativos:
-            rows = await conn.fetch("""
-                SELECT id, nome, especialidade, cargo, ativo, created_at
-                FROM profissionais
-                WHERE ativo = true
-                ORDER BY nome
-            """)
-        else:
-            rows = await conn.fetch("""
-                SELECT id, nome, especialidade, cargo, ativo, created_at
-                FROM profissionais
-                ORDER BY nome
-            """)
+            query += " AND ativo = true"
+
+        if business_type:
+            param_count += 1
+            query += f" AND business_type = ${param_count}"
+            params.append(business_type)
+
+        query += " ORDER BY nome"
+
+        rows = await conn.fetch(query, *params)
         return [dict(row) for row in rows]
 
 
@@ -833,11 +848,11 @@ class AgendaService:
         await agenda_init_tables()
 
     # Profissionais
-    async def criar_profissional(self, nome: str, especialidade: str = None, cargo: str = None) -> int:
-        return await agenda_criar_profissional(nome, especialidade, cargo)
+    async def criar_profissional(self, nome: str, especialidade: str = None, cargo: str = None, business_type: str = "clinica") -> int:
+        return await agenda_criar_profissional(nome, especialidade, cargo, business_type)
 
-    async def listar_profissionais(self, apenas_ativos: bool = True) -> List[dict]:
-        return await agenda_listar_profissionais(apenas_ativos)
+    async def listar_profissionais(self, apenas_ativos: bool = True, business_type: str = None) -> List[dict]:
+        return await agenda_listar_profissionais(apenas_ativos, business_type)
 
     async def atualizar_profissional(self, profissional_id: int, nome: str = None, especialidade: str = None, cargo: str = None, ativo: bool = None) -> bool:
         return await agenda_atualizar_profissional(profissional_id, nome, especialidade, cargo, ativo)
