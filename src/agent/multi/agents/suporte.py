@@ -3,10 +3,8 @@ Agente especializado em Suporte.
 """
 from typing import List
 from .base import BaseSpecializedAgent
-from src.agent.tools import (
-    buscar_informacao_empresa,
-    escalar_humano,
-)
+from src.agent.multi.tools import buscar_informacao_suporte
+from src.agent.tools import escalar_humano
 
 
 class SuporteAgent(BaseSpecializedAgent):
@@ -24,7 +22,7 @@ class SuporteAgent(BaseSpecializedAgent):
     def get_tools(self) -> List:
         """Ferramentas específicas para suporte."""
         return [
-            buscar_informacao_empresa,
+            buscar_informacao_suporte,
             escalar_humano,
         ]
 
@@ -36,7 +34,7 @@ class SuporteAgent(BaseSpecializedAgent):
 #################################################
 
 ANTES DE RESPONDER QUALQUER COISA, VOCÊ DEVE:
-1. CHAMAR a ferramenta `buscar_informacao_empresa`
+1. CHAMAR a ferramenta `buscar_informacao_suporte`
 2. AGUARDAR o resultado
 3. SÓ ENTÃO responder baseado NO QUE A FERRAMENTA RETORNOU
 
@@ -50,7 +48,7 @@ Se você responder SEM chamar a ferramenta primeiro, você estará INVENTANDO in
 ❌ "Aguarde 24 horas" - VOCÊ INVENTOU ISSO
 
 ## O QUE FAZER QUANDO CLIENTE RELATA PROBLEMA:
-1. PRIMEIRO: Chamar `buscar_informacao_empresa` com o problema (ex: "problema login", "acesso curso", "video nao carrega")
+1. PRIMEIRO: Chamar `buscar_informacao_suporte` com o problema (ex: "problema login", "acesso curso", "video nao carrega")
 2. SE A FERRAMENTA RETORNAR SOLUÇÃO: Use essa solução
 3. SE A FERRAMENTA NÃO RETORNAR: Diga "Vou verificar com a equipe técnica e retorno em breve" OU escale para humano
 
@@ -59,7 +57,7 @@ Se você responder SEM chamar a ferramenta primeiro, você estará INVENTANDO in
 ✅ "Sinto muito pelo inconveniente. Vou escalar seu caso para nossa equipe resolver o mais rápido possível."
 
 ## Ferramentas:
-- `buscar_informacao_empresa`: SEMPRE chamar primeiro
+- `buscar_informacao_suporte`: SEMPRE chamar primeiro (RAG otimizado para suporte)
 - `escalar_humano`: Usar para reclamações graves, reembolsos, ou quando não encontrar solução
 
 ## Quando Escalar para Humano:

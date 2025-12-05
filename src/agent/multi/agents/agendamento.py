@@ -3,6 +3,7 @@ Agente especializado em Agendamento.
 """
 from typing import List
 from .base import BaseSpecializedAgent
+from src.agent.multi.tools import buscar_informacao_agendamento
 from src.agent.tools_agenda import (
     listar_profissionais_disponiveis,
     buscar_horarios_disponiveis,
@@ -28,6 +29,7 @@ class AgendamentoAgent(BaseSpecializedAgent):
     def get_tools(self) -> List:
         """Ferramentas específicas para agendamento."""
         return [
+            buscar_informacao_agendamento,
             listar_profissionais_disponiveis,
             buscar_horarios_disponiveis,
             criar_agendamento,
@@ -48,6 +50,7 @@ Gerenciar agenda de forma eficiente, realizando agendamentos, remarcações e ca
 4. Explique políticas de cancelamento quando relevante
 
 ## Ferramentas Disponíveis:
+- `buscar_informacao_agendamento`: Busca políticas, horários de funcionamento e informações sobre profissionais
 - `listar_profissionais_disponiveis`: Lista profissionais disponíveis
 - `buscar_horarios_disponiveis`: Verifica horários livres de um profissional
 - `criar_agendamento`: Realiza o agendamento
