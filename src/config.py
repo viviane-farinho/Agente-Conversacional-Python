@@ -50,7 +50,7 @@ class Config:
     SERVER_PORT = int(os.getenv("SERVER_PORT", "8000"))
 
     # Tempo de espera para mensagens encavaladas (segundos)
-    MESSAGE_QUEUE_WAIT_TIME = int(os.getenv("MESSAGE_QUEUE_WAIT_TIME", "10"))
+    MESSAGE_QUEUE_WAIT_TIME = int(os.getenv("MESSAGE_QUEUE_WAIT_TIME", "3"))
 
     # Histórico de mensagens
     CONTEXT_WINDOW_LENGTH = int(os.getenv("CONTEXT_WINDOW_LENGTH", "50"))

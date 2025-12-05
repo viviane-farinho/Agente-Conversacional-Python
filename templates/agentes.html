@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Meus Agentes - Secretaria IA{% endblock %}
+{% block title %}Multiagente - Secretaria IA{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -14,6 +14,8 @@
         --glass-border: rgba(255, 255, 255, 0.08);
         --glass-highlight: rgba(255, 255, 255, 0.15);
     }
+
+
 
     /* Deep Space Background with Nebula Effects */
     .agents-dashboard {
@@ -310,7 +312,7 @@
 <div class="agents-dashboard pt-5 pb-2 px-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h2 class="fw-bold mb-1 text-white fs-4">Meus Agentes</h2>
+            <h2 class="fw-bold mb-1 text-white fs-4">Multiagente</h2>
             <p class="text-white-50 mb-0 small">Gerencie sua equipe de inteligência artificial</p>
         </div>
     </div>
@@ -500,10 +502,11 @@
             </div>
         </div>
     </div>
-    <!-- Removed premature closing div -->
+</div>
 
-    <!-- Calendar Section -->
-    <div class="calendar-section mt-4 px-4 pb-5">
+<!-- Calendar Section (Separate Container) -->
+<div class="agents-dashboard pt-4 pb-4 px-4 mt-4">
+    <div class="calendar-section px-4 pb-5">
         <div class="glass-card p-4">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div class="d-flex align-items-center gap-3">
@@ -691,50 +694,485 @@
         }
     </style>
 
-    <!-- Modal Configuração (Placeholder) -->
+    <!-- Modal Configuração de Agente -->
     <div class="modal fade" id="configModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content" style="background: #1a1a1a; border: 1px solid #333; color: white;">
                 <div class="modal-header border-bottom border-secondary">
-                    <h5 class="modal-title fw-bold">Configurar Agente</h5>
+                    <h5 class="modal-title fw-bold" id="modalTitle">Configurar Agente</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-center text-secondary py-5">
-                        <i class="bi bi-cone-striped fs-1 d-block mb-3"></i>
-                        Funcionalidade em desenvolvimento.<br>
-                        Em breve você poderá editar prompts e tools aqui.
-                    </p>
+                    <form id="formAgente">
+                        <input type="hidden" id="agenteId">
+                        <input type="hidden" id="agenteTipo">
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label text-white-50">Nome do Agente *</label>
+                                <input type="text" class="form-control bg-dark text-white border-secondary"
+                                    id="agenteNome" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-white-50">Status</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="agenteAtivo" checked>
+                                    <label class="form-check-label text-white" for="agenteAtivo">Agente Ativo</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-white-50">Descricao</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary"
+                                id="agenteDescricao" placeholder="Breve descricao do proposito deste agente">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-white-50">Prompt do Sistema *</label>
+                            <textarea class="form-control bg-dark text-white border-secondary" id="agentePrompt"
+                                rows="10" style="font-family: monospace; font-size: 13px;"
+                                placeholder="Instrucoes para o agente..."></textarea>
+                            <small class="text-white-50">
+                                Variaveis disponiveis: {phone}, {conversation_id}, {current_date}, {empresa_text},
+                                {professionals_text}
+                            </small>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label text-white-50">Tools Disponiveis</label>
+                                <select class="form-select bg-dark text-white border-secondary" id="agenteTools"
+                                    multiple size="4">
+                                    <option value="verificar_disponibilidade">verificar_disponibilidade</option>
+                                    <option value="criar_agendamento">criar_agendamento</option>
+                                    <option value="cancelar_agendamento">cancelar_agendamento</option>
+                                    <option value="buscar_rag">buscar_rag</option>
+                                    <option value="transferir_humano">transferir_humano</option>
+                                </select>
+                                <small class="text-white-50">Ctrl+Click para selecionar multiplas</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-white-50">Categorias RAG</label>
+                                <select class="form-select bg-dark text-white border-secondary" id="agenteCategoriasRag"
+                                    multiple size="4">
+                                    <option value="geral">geral</option>
+                                    <option value="servicos">servicos</option>
+                                    <option value="precos">precos</option>
+                                    <option value="promocoes">promocoes</option>
+                                    <option value="faq">faq</option>
+                                    <option value="procedimentos">procedimentos</option>
+                                    <option value="politicas">politicas</option>
+                                    <option value="profissionais">profissionais</option>
+                                    <option value="horarios">horarios</option>
+                                </select>
+                                <small class="text-white-50">Categorias da base de conhecimento</small>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-top border-secondary">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarAgente()">
+                        <i class="bi bi-save me-1"></i> Salvar
+                    </button>
                 </div>
             </div>
         </div>
     </div>
-    {% endblock %}
+</div>
 
-    {% block extra_js %}
-    <script>
-        function toggleAgente(nome) {
-            // Mock toggle
-            console.log(`Toggled ${nome}`);
+<!-- Sales Pipeline Section (Separate Container) -->
+<div class="agents-dashboard pt-4 pb-4 px-4 mt-4 d-flex flex-column">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="fw-bold mb-1 text-white fs-5">Pipeline de Vendas</h3>
+            <p class="text-white-50 mb-0 small">Acompanhe suas oportunidades em tempo real</p>
+        </div>
+        <button class="btn btn-glass btn-sm">
+            <i class="bi bi-arrow-right me-1"></i> Ver Tudo
+        </button>
+    </div>
+
+    <div class="glass-card p-4 flex-grow-1 d-flex flex-column">
+        <div class="row g-3 flex-grow-1">
+            <!-- Column: Leads -->
+            <div class="col-md-4">
+                <div class="p-3 rounded-4 h-100"
+                    style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-white fw-bold mb-0">
+                            <i class="bi bi-funnel text-primary me-2"></i>Leads
+                        </h6>
+                        <span class="badge bg-primary bg-opacity-25 text-primary">12</span>
+                    </div>
+
+                    <!-- Card Item -->
+                    <div class="p-3 rounded-3 mb-2"
+                        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; transition: all 0.2s;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
+                        <div class="d-flex justify-content-between mb-2">
+                            <small class="text-white-50">Há 2h</small>
+                            <i class="bi bi-whatsapp text-success"></i>
+                        </div>
+                        <h6 class="text-white mb-1">Carlos Eduardo</h6>
+                        <p class="text-white-50 small mb-0">Interesse no plano anual...</p>
+                    </div>
+
+                    <!-- Card Item -->
+                    <div class="p-3 rounded-3"
+                        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; transition: all 0.2s;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
+                        <div class="d-flex justify-content-between mb-2">
+                            <small class="text-white-50">Há 5h</small>
+                            <i class="bi bi-instagram text-danger"></i>
+                        </div>
+                        <h6 class="text-white mb-1">Ana Julia</h6>
+                        <p class="text-white-50 small mb-0">Dúvida sobre preços...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column: Em Negociação -->
+            <div class="col-md-4">
+                <div class="p-3 rounded-4 h-100"
+                    style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-white fw-bold mb-0">
+                            <i class="bi bi-chat-dots text-warning me-2"></i>Em Negociação
+                        </h6>
+                        <span class="badge bg-warning bg-opacity-25 text-warning">5</span>
+                    </div>
+
+                    <!-- Card Item -->
+                    <div class="p-3 rounded-3 mb-2"
+                        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; transition: all 0.2s;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-warning text-dark" style="font-size: 0.65rem;">Quente 🔥</span>
+                            <small class="text-white-50">R$ 1.200</small>
+                        </div>
+                        <h6 class="text-white mb-1">Empresa XYZ Ltda</h6>
+                        <p class="text-white-50 small mb-0">Aguardando aprovação...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column: Fechado -->
+            <div class="col-md-4">
+                <div class="p-3 rounded-4 h-100"
+                    style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-white fw-bold mb-0">
+                            <i class="bi bi-check-circle text-success me-2"></i>Fechado
+                        </h6>
+                        <span class="badge bg-success bg-opacity-25 text-success">28</span>
+                    </div>
+
+                    <!-- Card Item -->
+                    <div class="p-3 rounded-3"
+                        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); opacity: 0.7;">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-success" style="font-size: 0.65rem;">Pago</span>
+                            <small class="text-white-50">Ontem</small>
+                        </div>
+                        <h6 class="text-white mb-1">Roberto Silva</h6>
+                        <p class="text-white-50 small mb-0">Plano Premium Anual</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Support Pipeline Section (Separate Container) -->
+<div class="agents-dashboard pt-4 pb-4 px-4 mt-4 d-flex flex-column">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="fw-bold mb-1 text-white fs-5">Pipeline de Suporte</h3>
+            <p class="text-white-50 mb-0 small">Gerencie tickets e solicitações de ajuda</p>
+        </div>
+        <button class="btn btn-glass btn-sm">
+            <i class="bi bi-arrow-right me-1"></i> Ver Tudo
+        </button>
+    </div>
+
+    <div class="glass-card p-4 flex-grow-1 d-flex flex-column">
+        <div class="row g-3 flex-grow-1">
+            <!-- Column: Tickets Abertos -->
+            <div class="col-md-4">
+                <div class="p-3 rounded-4 h-100"
+                    style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-white fw-bold mb-0">
+                            <i class="bi bi-exclamation-circle text-danger me-2"></i>Abertos
+                        </h6>
+                        <span class="badge bg-danger bg-opacity-25 text-danger">8</span>
+                    </div>
+
+                    <!-- Card Item -->
+                    <div class="p-3 rounded-3 mb-2"
+                        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; transition: all 0.2s;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-danger text-white" style="font-size: 0.65rem;">Urgente</span>
+                            <small class="text-white-50">Há 30min</small>
+                        </div>
+                        <h6 class="text-white mb-1">Mariana Costa</h6>
+                        <p class="text-white-50 small mb-0">Erro no login do sistema...</p>
+                    </div>
+
+                    <!-- Card Item -->
+                    <div class="p-3 rounded-3"
+                        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; transition: all 0.2s;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
+                        <div class="d-flex justify-content-between mb-2">
+                            <small class="text-white-50">Há 1h</small>
+                            <i class="bi bi-whatsapp text-success"></i>
+                        </div>
+                        <h6 class="text-white mb-1">João Pedro</h6>
+                        <p class="text-white-50 small mb-0">Como alterar a senha?</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column: Em Análise -->
+            <div class="col-md-4">
+                <div class="p-3 rounded-4 h-100"
+                    style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-white fw-bold mb-0">
+                            <i class="bi bi-tools text-info me-2"></i>Em Análise
+                        </h6>
+                        <span class="badge bg-info bg-opacity-25 text-info">3</span>
+                    </div>
+
+                    <!-- Card Item -->
+                    <div class="p-3 rounded-3 mb-2"
+                        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; transition: all 0.2s;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-info text-dark" style="font-size: 0.65rem;">Técnico</span>
+                            <small class="text-white-50">Há 4h</small>
+                        </div>
+                        <h6 class="text-white mb-1">Clinica Saúde</h6>
+                        <p class="text-white-50 small mb-0">Integração com API falhando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column: Resolvido -->
+            <div class="col-md-4">
+                <div class="p-3 rounded-4 h-100"
+                    style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-white fw-bold mb-0">
+                            <i class="bi bi-check2-circle text-success me-2"></i>Resolvido
+                        </h6>
+                        <span class="badge bg-success bg-opacity-25 text-success">45</span>
+                    </div>
+
+                    <!-- Card Item -->
+                    <div class="p-3 rounded-3"
+                        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); opacity: 0.7;">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-success" style="font-size: 0.65rem;">Fechado</span>
+                            <small class="text-white-50">Hoje</small>
+                        </div>
+                        <h6 class="text-white mb-1">Fernanda Lima</h6>
+                        <p class="text-white-50 small mb-0">Dúvida esclarecida</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let agentes = [];
+    let agentesPorTipo = {};
+
+    // Carrega agentes ao iniciar
+    document.addEventListener('DOMContentLoaded', function () {
+        carregarAgentes();
+    });
+
+    async function carregarAgentes() {
+        try {
+            const data = await apiCall('/api/admin/agentes');
+            agentes = data.agentes || [];
+
+            // Organiza por tipo para acesso rapido
+            agentesPorTipo = {};
+            agentes.forEach(a => {
+                agentesPorTipo[a.tipo] = a;
+            });
+
+            atualizarUI();
+        } catch (error) {
+            console.error('Erro ao carregar agentes:', error);
+            showToast('Erro ao carregar agentes: ' + error.message, 'danger');
+        }
+    }
+
+    function atualizarUI() {
+        // Atualiza switches e badges de status
+        ['supervisor', 'vendas', 'suporte', 'agendamento'].forEach(tipo => {
+            const agente = agentesPorTipo[tipo];
+            if (agente) {
+                // Atualiza switch se existir
+                const switchEl = document.querySelector(`input[onchange="toggleAgente('${tipo}')"]`);
+                if (switchEl) {
+                    switchEl.checked = agente.ativo;
+                }
+
+                // Atualiza badges de status
+                const cardClass = `.card-${tipo}`;
+                const card = document.querySelector(cardClass);
+                if (card) {
+                    const statusBadge = card.querySelector('.status-badge');
+                    if (statusBadge) {
+                        const dot = statusBadge.querySelector('.status-dot');
+                        if (agente.ativo) {
+                            statusBadge.innerHTML = `<span class="status-dot" style="color: ${getCorTipo(tipo)}; width: 6px; height: 6px;"></span>Online`;
+                        } else {
+                            statusBadge.innerHTML = `<span class="status-dot" style="color: #666; width: 6px; height: 6px;"></span>Offline`;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function getCorTipo(tipo) {
+        const cores = {
+            'supervisor': '#bd34fe',
+            'vendas': '#22c55e',
+            'suporte': '#3b82f6',
+            'agendamento': '#06b6d4'
+        };
+        return cores[tipo] || '#fff';
+    }
+
+    async function toggleAgente(tipo) {
+        const agente = agentesPorTipo[tipo];
+        if (!agente) {
+            showToast('Agente nao encontrado', 'danger');
+            return;
         }
 
-        function configurarSupervisor() {
-            const modal = new bootstrap.Modal(document.getElementById('configModal'));
-            modal.show();
+        try {
+            const result = await apiCall(`/api/admin/agentes/${agente.id}/toggle`, 'POST');
+            agente.ativo = result.ativo;
+            showToast(result.message);
+            atualizarUI();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
+            // Reverte o switch
+            const switchEl = document.querySelector(`input[onchange="toggleAgente('${tipo}')"]`);
+            if (switchEl) switchEl.checked = agente.ativo;
+        }
+    }
+
+    function configurarSupervisor() {
+        configurarAgente('supervisor');
+    }
+
+    async function configurarAgente(tipo) {
+        const agente = agentesPorTipo[tipo];
+        if (!agente) {
+            showToast('Agente nao encontrado. Carregando dados...', 'warning');
+            await carregarAgentes();
+            return;
         }
 
-        function configurarAgente(nome) {
-            const modal = new bootstrap.Modal(document.getElementById('configModal'));
-            modal.show();
+        // Preenche o modal
+        document.getElementById('modalTitle').textContent = `Configurar ${agente.nome}`;
+        document.getElementById('agenteId').value = agente.id;
+        document.getElementById('agenteTipo').value = agente.tipo;
+        document.getElementById('agenteNome').value = agente.nome;
+        document.getElementById('agenteDescricao').value = agente.descricao || '';
+        document.getElementById('agentePrompt').value = agente.prompt_sistema || '';
+        document.getElementById('agenteAtivo').checked = agente.ativo;
+
+        // Seleciona tools
+        const toolsSelect = document.getElementById('agenteTools');
+        Array.from(toolsSelect.options).forEach(opt => {
+            opt.selected = (agente.tools || []).includes(opt.value);
+        });
+
+        // Seleciona categorias RAG
+        const catSelect = document.getElementById('agenteCategoriasRag');
+        Array.from(catSelect.options).forEach(opt => {
+            opt.selected = (agente.categorias_rag || []).includes(opt.value);
+        });
+
+        const modal = new bootstrap.Modal(document.getElementById('configModal'));
+        modal.show();
+    }
+
+    async function salvarAgente() {
+        const id = document.getElementById('agenteId').value;
+        const tipo = document.getElementById('agenteTipo').value;
+        const nome = document.getElementById('agenteNome').value;
+        const descricao = document.getElementById('agenteDescricao').value;
+        const promptSistema = document.getElementById('agentePrompt').value;
+        const ativo = document.getElementById('agenteAtivo').checked;
+
+        // Coleta tools selecionadas
+        const toolsSelect = document.getElementById('agenteTools');
+        const tools = Array.from(toolsSelect.selectedOptions).map(opt => opt.value);
+
+        // Coleta categorias RAG selecionadas
+        const catSelect = document.getElementById('agenteCategoriasRag');
+        const categoriasRag = Array.from(catSelect.selectedOptions).map(opt => opt.value);
+
+        if (!nome || !promptSistema) {
+            showToast('Preencha o nome e o prompt do agente', 'warning');
+            return;
         }
 
-        function verLogs() {
-            alert('Logs em breve');
-        }
+        try {
+            await apiCall(`/api/admin/agentes/${id}`, 'PUT', {
+                nome: nome,
+                descricao: descricao || null,
+                prompt_sistema: promptSistema,
+                ativo: ativo,
+                tools: tools,
+                categorias_rag: categoriasRag
+            });
 
-        function abrirModalNovoAgente() {
-            const modal = new bootstrap.Modal(document.getElementById('configModal'));
-            modal.show();
+            showToast('Agente atualizado com sucesso!');
+            bootstrap.Modal.getInstance(document.getElementById('configModal')).hide();
+            carregarAgentes();
+        } catch (error) {
+            showToast('Erro: ' + error.message, 'danger');
         }
-    </script>
-    {% endblock %}
+    }
+
+    function verLogs() {
+        showToast('Funcionalidade de logs em desenvolvimento', 'info');
+    }
+
+    function abrirModalNovoAgente() {
+        // Limpa o modal para novo agente
+        document.getElementById('modalTitle').textContent = 'Novo Agente';
+        document.getElementById('formAgente').reset();
+        document.getElementById('agenteId').value = '';
+        document.getElementById('agenteTipo').value = '';
+        document.getElementById('agenteAtivo').checked = true;
+
+        const modal = new bootstrap.Modal(document.getElementById('configModal'));
+        modal.show();
+    }
+</script>
+{% endblock %}

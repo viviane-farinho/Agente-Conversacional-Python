@@ -27,6 +27,7 @@ from src.services.audio import audio_service
 from src.services.rag import get_rag_service
 from src.services.agenda import get_agenda_service, config_obter_int
 from src.agent.graph import get_agent
+from src.agent.multi.supervisor import SupervisorAgent
 
 
 # --- Modelos Pydantic ---
@@ -141,6 +142,29 @@ class PipelineConversaUpdate(BaseModel):
 
 class PipelineMoverEtapa(BaseModel):
     etapa: str
+
+
+class AgenteBase(BaseModel):
+    tipo: str
+    nome: str
+    descricao: Optional[str] = None
+    prompt_sistema: Optional[str] = None
+    ativo: bool = True
+    configuracoes: Optional[dict] = None
+    tools: Optional[list] = None
+    categorias_rag: Optional[list] = None
+    ordem: int = 0
+
+
+class AgenteUpdate(BaseModel):
+    nome: Optional[str] = None
+    descricao: Optional[str] = None
+    prompt_sistema: Optional[str] = None
+    ativo: Optional[bool] = None
+    configuracoes: Optional[dict] = None
+    tools: Optional[list] = None
+    categorias_rag: Optional[list] = None
+    ordem: Optional[int] = None
 
 
 # --- Contexto do App ---
@@ -448,6 +472,129 @@ async def process_incoming_message(
             pass
 
 
+async def process_incoming_message_multi(
+    message_id: str,
+    account_id: str,
+    conversation_id: str,
+    phone: str,
+    message: str,
+    is_audio: bool,
+    audio_url: Optional[str],
+    labels: list,
+    telegram_chat_id: str,
+    sender_name: str = ""
+):
+    """
+    Processa uma mensagem usando o sistema MULTI-AGENTE com Supervisor.
+    Endpoint separado para testes do novo sistema.
+    """
+    try:
+        # Verifica se o agente esta desabilitado para esta conversa
+        if "agente-off" in labels:
+            print(f"[MULTI] Agente desabilitado para conversa {conversation_id}")
+            return
+
+        db = await get_db_service()
+
+        # Enfileira a mensagem
+        await db.enqueue_message(
+            message_id=message_id,
+            phone=phone,
+            message=message,
+            timestamp=datetime.now(timezone.utc)
+        )
+
+        # Marca como lida e ativa "digitando"
+        try:
+            await chatwoot_service.mark_as_read(account_id, conversation_id)
+            await chatwoot_service.set_typing_status(account_id, conversation_id, "on")
+        except Exception as e:
+            print(f"[MULTI] Aviso: Nao foi possivel ativar typing status: {e}")
+
+        # Aguarda mensagens encavaladas
+        buffer_seconds = await config_obter_int("message_buffer_seconds", Config.MESSAGE_QUEUE_WAIT_TIME)
+        await asyncio.sleep(buffer_seconds)
+
+        # Verifica se esta e a ultima mensagem da fila
+        last_id = await db.get_last_message_id(phone)
+        if last_id != message_id:
+            print(f"[MULTI] Mensagem encavalada ignorada: {message_id}")
+            return
+
+        # Busca todas as mensagens da fila
+        queued_messages = await db.get_queued_messages(phone)
+
+        # Limpa a fila
+        await db.clear_message_queue(phone)
+
+        # Concatena as mensagens
+        if is_audio and audio_url:
+            audio_data = await chatwoot_service.download_attachment(audio_url)
+            final_message = await audio_service.transcribe_audio(audio_data)
+        else:
+            final_message = "\n".join([m["mensagem"] for m in queued_messages])
+
+        print(f"[MULTI] Processando mensagem de {phone}: {final_message[:50]}...")
+
+        # Marca como lida e mostra "digitando"
+        await chatwoot_service.mark_as_read(account_id, conversation_id)
+        typing_status = "recording" if is_audio else "on"
+        await chatwoot_service.set_typing_status(account_id, conversation_id, typing_status)
+
+        # *** USA O SISTEMA MULTI-AGENTE ***
+        multi_agent = SupervisorAgent()
+        response = await multi_agent.process_message(
+            message=final_message,
+            phone=phone,
+            account_id=account_id,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            telegram_chat_id=telegram_chat_id,
+            is_audio_message=is_audio
+        )
+
+        # Formata a resposta (usa o agente simples para formatar)
+        agent = get_agent()
+        formatted_response = await agent.format_response_for_whatsapp(response)
+
+        # Desliga o status de digitacao
+        await chatwoot_service.set_typing_status(account_id, conversation_id, "off")
+
+        # Envia a resposta
+        if is_audio:
+            tts_text = audio_service.format_text_for_tts(formatted_response)
+            audio_response = await audio_service.text_to_speech(tts_text)
+            await chatwoot_service.send_audio(
+                account_id=account_id,
+                conversation_id=conversation_id,
+                audio_data=audio_response,
+                filename="resposta.mp3"
+            )
+        else:
+            await chatwoot_service.send_message(
+                account_id=account_id,
+                conversation_id=conversation_id,
+                content=formatted_response
+            )
+
+        print(f"[MULTI] Resposta enviada para {phone}")
+
+    except Exception as e:
+        print(f"[MULTI] Erro ao processar mensagem: {e}")
+        import traceback
+        traceback.print_exc()
+
+        try:
+            await chatwoot_service.set_typing_status(account_id, conversation_id, "off")
+            await chatwoot_service.send_message(
+                account_id=account_id,
+                conversation_id=conversation_id,
+                content="[MULTI-AGENT] Desculpe, ocorreu um erro. Por favor, tente novamente."
+            )
+        except:
+            pass
+
+
 # --- Endpoints ---
 
 @app.get("/")
@@ -549,6 +696,88 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
 
     except Exception as e:
         print(f"Erro no webhook: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/webhook/chatwoot/multi")
+@limiter.limit("30/minute")
+async def chatwoot_webhook_multi(request: Request, background_tasks: BackgroundTasks):
+    """
+    Webhook SEPARADO para testar o sistema MULTI-AGENTE.
+
+    Configure este webhook no Chatwoot para testar o novo sistema de agentes
+    com Supervisor, sem afetar o sistema principal de producao.
+
+    URL: /webhook/chatwoot/multi
+    """
+    try:
+        body = await request.body()
+        signature = request.headers.get("X-Chatwoot-Signature", "")
+        if not verify_webhook_signature(body, signature):
+            print("[MULTI] Webhook com assinatura invalida rejeitado")
+            raise HTTPException(status_code=401, detail="Assinatura invalida")
+
+        data = await request.json()
+        print(f"[MULTI] Webhook recebido")
+
+        event = data.get("event")
+        if event != "message_created":
+            print(f"[MULTI] Evento ignorado: {event}")
+            return {"status": "ignored", "reason": "event not message_created"}
+
+        message_type = data.get("message_type")
+        print(f"[MULTI] message_type={message_type}, content={data.get('content')}")
+
+        if message_type != "incoming":
+            print(f"[MULTI] Mensagem ignorada: message_type={message_type}")
+            return {"status": "ignored", "reason": "not incoming message"}
+
+        message_id = str(data.get("id"))
+        account_id = str(data.get("account", {}).get("id"))
+        conversation = data.get("conversation", {})
+        conversation_id = str(conversation.get("id"))
+        labels = conversation.get("labels", [])
+
+        sender = data.get("sender", {})
+        phone = sender.get("phone_number", "")
+        sender_name = sender.get("name", "") or sender.get("contact_name", "")
+
+        content = data.get("content", "") or ""
+        attachments = data.get("attachments", []) or []
+
+        is_audio = False
+        audio_url = None
+        if attachments:
+            first_attachment = attachments[0]
+            is_audio = first_attachment.get("meta", {}).get("is_recorded_audio", False)
+            if is_audio:
+                audio_url = first_attachment.get("data_url")
+
+        if not content and not is_audio:
+            print(f"[MULTI] Mensagem sem conteudo ignorada")
+            return {"status": "ignored", "reason": "no content or audio"}
+
+        print(f"[MULTI] Processando: id={message_id}, phone={phone}, content={content[:50] if content else 'AUDIO'}...")
+
+        # Processa usando o sistema MULTI-AGENTE
+        background_tasks.add_task(
+            process_incoming_message_multi,
+            message_id=message_id,
+            account_id=account_id,
+            conversation_id=conversation_id,
+            phone=phone,
+            message=content,
+            is_audio=is_audio,
+            audio_url=audio_url,
+            labels=labels,
+            telegram_chat_id=Config.TELEGRAM_CHAT_ID,
+            sender_name=sender_name
+        )
+
+        return {"status": "processing", "agent": "multi"}
+
+    except Exception as e:
+        print(f"[MULTI] Erro no webhook: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -745,8 +974,14 @@ async def admin_prompts(request: Request, username: str = Depends(verify_admin))
 
 @app.get("/admin/agentes", response_class=HTMLResponse)
 async def admin_agentes(request: Request, username: str = Depends(verify_admin)):
-    """Pagina de gerenciamento de agentes"""
-    return templates.TemplateResponse("agentes.html", {"request": request})
+    """Dashboard de agentes (Multiagente)"""
+    return templates.TemplateResponse("agentes.html", {"request": request, "username": username})
+
+
+@app.get("/admin/agente-simples", response_class=HTMLResponse)
+async def admin_agente_simples(request: Request, username: str = Depends(verify_admin)):
+    """Dashboard de agente simples (Legado/Simplificado)"""
+    return templates.TemplateResponse("agente_simples.html", {"request": request, "username": username})
 
 
 @app.get("/admin/pipeline", response_class=HTMLResponse)
@@ -1339,6 +1574,125 @@ async def api_deletar_config(chave: str, username: str = Depends(verify_admin)):
         agenda = await get_agenda_service(db.pool)
         success = await agenda.config_deletar(chave)
         return {"message": "Configuracao restaurada para o default" if success else "Configuracao nao encontrada"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- API Agentes (Multi-Agent Architecture) ---
+
+@app.get("/api/admin/agentes")
+async def api_listar_agentes(apenas_ativos: bool = False, username: str = Depends(verify_admin)):
+    """Lista todos os agentes"""
+    try:
+        from src.services.database import db_agentes_listar
+        agentes = await db_agentes_listar(apenas_ativos)
+
+        # Converte datetime para string
+        for a in agentes:
+            if a.get('created_at'):
+                a['created_at'] = a['created_at'].isoformat()
+            if a.get('updated_at'):
+                a['updated_at'] = a['updated_at'].isoformat()
+
+        return {"agentes": agentes}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/agentes/{agente_id}")
+async def api_buscar_agente(agente_id: int, username: str = Depends(verify_admin)):
+    """Busca um agente pelo ID"""
+    try:
+        from src.services.database import db_agentes_buscar
+        agente = await db_agentes_buscar(agente_id)
+        if not agente:
+            raise HTTPException(status_code=404, detail="Agente nao encontrado")
+
+        # Converte datetime para string
+        if agente.get('created_at'):
+            agente['created_at'] = agente['created_at'].isoformat()
+        if agente.get('updated_at'):
+            agente['updated_at'] = agente['updated_at'].isoformat()
+
+        return {"agente": agente}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/agentes")
+async def api_criar_agente(agente: AgenteBase, username: str = Depends(verify_admin)):
+    """Cria um novo agente"""
+    try:
+        from src.services.database import db_agentes_criar
+        agente_id = await db_agentes_criar(
+            tipo=agente.tipo,
+            nome=agente.nome,
+            descricao=agente.descricao,
+            prompt_sistema=agente.prompt_sistema,
+            ativo=agente.ativo,
+            configuracoes=agente.configuracoes,
+            tools=agente.tools,
+            categorias_rag=agente.categorias_rag,
+            ordem=agente.ordem
+        )
+        return {"id": agente_id, "message": "Agente criado"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/admin/agentes/{agente_id}")
+async def api_atualizar_agente(agente_id: int, agente: AgenteUpdate, username: str = Depends(verify_admin)):
+    """Atualiza um agente existente"""
+    try:
+        from src.services.database import db_agentes_atualizar
+        success = await db_agentes_atualizar(
+            agente_id=agente_id,
+            nome=agente.nome,
+            descricao=agente.descricao,
+            prompt_sistema=agente.prompt_sistema,
+            ativo=agente.ativo,
+            configuracoes=agente.configuracoes,
+            tools=agente.tools,
+            categorias_rag=agente.categorias_rag,
+            ordem=agente.ordem
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="Agente nao encontrado")
+        return {"message": "Agente atualizado"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/agentes/{agente_id}")
+async def api_deletar_agente(agente_id: int, username: str = Depends(verify_admin)):
+    """Remove um agente"""
+    try:
+        from src.services.database import db_agentes_deletar
+        success = await db_agentes_deletar(agente_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Agente nao encontrado")
+        return {"message": "Agente removido"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/agentes/{agente_id}/toggle")
+async def api_toggle_agente(agente_id: int, username: str = Depends(verify_admin)):
+    """Ativa/desativa um agente"""
+    try:
+        from src.services.database import db_agentes_toggle_ativo
+        novo_status = await db_agentes_toggle_ativo(agente_id)
+        if novo_status is None:
+            raise HTTPException(status_code=404, detail="Agente nao encontrado")
+        return {"ativo": novo_status, "message": f"Agente {'ativado' if novo_status else 'desativado'}"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -43,7 +43,12 @@
                 </a>
                 <a href="/admin/agentes" class="nav-link {% if 'agentes' in request.url.path %}active{% endif %}">
                     <i class="bi bi-robot"></i>
-                    <span>Meus Agentes</span>
+                    <span>Multiagente</span>
+                </a>
+                <a href="/admin/agente-simples"
+                    class="nav-link {% if 'agente-simples' in request.url.path %}active{% endif %}">
+                    <i class="bi bi-person-badge"></i>
+                    <span>Agente Simples</span>
                 </a>
                 <a href="/admin/prompts" class="nav-link {% if 'prompts' in request.url.path %}active{% endif %}">
                     <i class="bi bi-chat-square-text"></i>

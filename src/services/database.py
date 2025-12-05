@@ -153,6 +153,71 @@ async def db_init_tables() -> None:
             ON pipeline_conversas(telefone)
         """)
 
+        # Tabela de agentes (multi-agent architecture)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS agentes (
+                id SERIAL PRIMARY KEY,
+                tipo VARCHAR(50) NOT NULL,
+                nome VARCHAR(100) NOT NULL,
+                descricao TEXT,
+                prompt_sistema TEXT,
+                ativo BOOLEAN DEFAULT true,
+                configuracoes JSONB DEFAULT '{}',
+                tools TEXT[] DEFAULT '{}',
+                categorias_rag TEXT[] DEFAULT '{}',
+                ordem INTEGER DEFAULT 0,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        """)
+
+        # Migracao: Adiciona colunas novas se nao existirem
+        await conn.execute("""
+            DO $$
+            BEGIN
+                -- Coluna ordem
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'agentes' AND column_name = 'ordem') THEN
+                    ALTER TABLE agentes ADD COLUMN ordem INTEGER DEFAULT 0;
+                END IF;
+                
+                -- Coluna tools
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'agentes' AND column_name = 'tools') THEN
+                    ALTER TABLE agentes ADD COLUMN tools TEXT[] DEFAULT '{}';
+                END IF;
+
+                -- Coluna categorias_rag
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'agentes' AND column_name = 'categorias_rag') THEN
+                    ALTER TABLE agentes ADD COLUMN categorias_rag TEXT[] DEFAULT '{}';
+                END IF;
+            END $$;
+        """)
+
+        # Indice para tipo de agente
+        await conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_agentes_tipo
+            ON agentes(tipo)
+        """)
+
+        # Insere agentes padrao se a tabela estiver vazia
+        existing = await conn.fetchval("SELECT COUNT(*) FROM agentes")
+        if existing == 0:
+            await conn.execute("""
+                INSERT INTO agentes (tipo, nome, descricao, prompt_sistema, ativo, ordem, tools, categorias_rag)
+                VALUES
+                ('supervisor', 'Supervisor', 'Agente supervisor que roteia conversas para agentes especializados',
+                 'Você é o supervisor da Secretaria IA. Analise a mensagem do usuário e decida qual agente especializado deve atender: vendas (para informações sobre serviços e preços), suporte (para dúvidas gerais e reclamações), ou agendamento (para marcar, remarcar ou cancelar consultas).',
+                 true, 0, '{}', '{}'),
+                ('vendas', 'Vendas', 'Especialista em apresentar serviços e preços',
+                 'Você é especialista em vendas. Apresente os serviços disponíveis, tire dúvidas sobre preços e benefícios. Seja persuasivo mas não insistente.',
+                 true, 1, '{}', ARRAY['servicos', 'precos', 'promocoes']),
+                ('suporte', 'Suporte', 'Atendimento de dúvidas e reclamações',
+                 'Você é especialista em suporte. Responda dúvidas gerais, resolva problemas e encaminhe reclamações de forma empática e eficiente.',
+                 true, 2, '{}', ARRAY['faq', 'procedimentos', 'politicas']),
+                ('agendamento', 'Agendamento', 'Gestão de consultas e horários',
+                 'Você é especialista em agendamentos. Ajude a marcar, remarcar ou cancelar consultas. Verifique disponibilidade e confirme os dados do paciente.',
+                 true, 3, ARRAY['verificar_disponibilidade', 'criar_agendamento', 'cancelar_agendamento'], ARRAY['profissionais', 'horarios'])
+            """)
+
 
 # --- Fila de Mensagens ---
 
@@ -561,6 +626,232 @@ async def db_pipeline_stats() -> dict:
             GROUP BY etapa
         """)
         return {row["etapa"]: row["total"] for row in rows}
+
+
+# --- Agentes (Multi-Agent Architecture) ---
+
+async def db_agentes_listar(apenas_ativos: bool = False) -> list:
+    """
+    Lista todos os agentes
+
+    Args:
+        apenas_ativos: Se True, retorna apenas agentes ativos
+
+    Returns:
+        Lista de agentes
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        if apenas_ativos:
+            rows = await conn.fetch("""
+                SELECT * FROM agentes WHERE ativo = true ORDER BY ordem, id
+            """)
+        else:
+            rows = await conn.fetch("""
+                SELECT * FROM agentes ORDER BY ordem, id
+            """)
+        return [dict(row) for row in rows]
+
+
+async def db_agentes_buscar(agente_id: int) -> Optional[dict]:
+    """
+    Busca um agente pelo ID
+
+    Args:
+        agente_id: ID do agente
+
+    Returns:
+        Dados do agente ou None
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT * FROM agentes WHERE id = $1
+        """, agente_id)
+        return dict(row) if row else None
+
+
+async def db_agentes_buscar_por_tipo(tipo: str) -> Optional[dict]:
+    """
+    Busca um agente pelo tipo
+
+    Args:
+        tipo: Tipo do agente (supervisor, vendas, suporte, agendamento)
+
+    Returns:
+        Dados do agente ou None
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT * FROM agentes WHERE tipo = $1 AND ativo = true
+        """, tipo)
+        return dict(row) if row else None
+
+
+async def db_agentes_criar(
+    tipo: str,
+    nome: str,
+    descricao: str = None,
+    prompt_sistema: str = None,
+    ativo: bool = True,
+    configuracoes: dict = None,
+    tools: list = None,
+    categorias_rag: list = None,
+    ordem: int = 0
+) -> int:
+    """
+    Cria um novo agente
+
+    Args:
+        tipo: Tipo do agente
+        nome: Nome do agente
+        descricao: Descricao do agente
+        prompt_sistema: Prompt do sistema para o agente
+        ativo: Se o agente esta ativo
+        configuracoes: Configuracoes JSON do agente
+        tools: Lista de tools disponiveis para o agente
+        categorias_rag: Categorias do RAG que o agente pode consultar
+        ordem: Ordem de exibicao
+
+    Returns:
+        ID do agente criado
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO agentes (tipo, nome, descricao, prompt_sistema, ativo, configuracoes, tools, categorias_rag, ordem)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING id
+        """, tipo, nome, descricao, prompt_sistema, ativo,
+            json.dumps(configuracoes or {}), tools or [], categorias_rag or [], ordem)
+        return row["id"]
+
+
+async def db_agentes_atualizar(
+    agente_id: int,
+    nome: str = None,
+    descricao: str = None,
+    prompt_sistema: str = None,
+    ativo: bool = None,
+    configuracoes: dict = None,
+    tools: list = None,
+    categorias_rag: list = None,
+    ordem: int = None
+) -> bool:
+    """
+    Atualiza um agente existente
+
+    Args:
+        agente_id: ID do agente
+        nome: Nome do agente
+        descricao: Descricao do agente
+        prompt_sistema: Prompt do sistema
+        ativo: Se o agente esta ativo
+        configuracoes: Configuracoes JSON
+        tools: Lista de tools
+        categorias_rag: Categorias do RAG
+        ordem: Ordem de exibicao
+
+    Returns:
+        True se atualizou com sucesso
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        # Verifica se existe
+        existing = await conn.fetchrow("SELECT id FROM agentes WHERE id = $1", agente_id)
+        if not existing:
+            return False
+
+        # Monta query dinamica
+        updates = ["updated_at = NOW()"]
+        params = []
+        param_num = 1
+
+        if nome is not None:
+            params.append(nome)
+            updates.append(f"nome = ${param_num}")
+            param_num += 1
+        if descricao is not None:
+            params.append(descricao)
+            updates.append(f"descricao = ${param_num}")
+            param_num += 1
+        if prompt_sistema is not None:
+            params.append(prompt_sistema)
+            updates.append(f"prompt_sistema = ${param_num}")
+            param_num += 1
+        if ativo is not None:
+            params.append(ativo)
+            updates.append(f"ativo = ${param_num}")
+            param_num += 1
+        if configuracoes is not None:
+            params.append(json.dumps(configuracoes))
+            updates.append(f"configuracoes = ${param_num}")
+            param_num += 1
+        if tools is not None:
+            params.append(tools)
+            updates.append(f"tools = ${param_num}")
+            param_num += 1
+        if categorias_rag is not None:
+            params.append(categorias_rag)
+            updates.append(f"categorias_rag = ${param_num}")
+            param_num += 1
+        if ordem is not None:
+            params.append(ordem)
+            updates.append(f"ordem = ${param_num}")
+            param_num += 1
+
+        params.append(agente_id)
+        query = f"UPDATE agentes SET {', '.join(updates)} WHERE id = ${param_num}"
+        await conn.execute(query, *params)
+        return True
+
+
+async def db_agentes_deletar(agente_id: int) -> bool:
+    """
+    Remove um agente
+
+    Args:
+        agente_id: ID do agente
+
+    Returns:
+        True se removeu com sucesso
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow("SELECT id FROM agentes WHERE id = $1", agente_id)
+        if not existing:
+            return False
+
+        await conn.execute("DELETE FROM agentes WHERE id = $1", agente_id)
+        return True
+
+
+async def db_agentes_toggle_ativo(agente_id: int) -> Optional[bool]:
+    """
+    Alterna o status ativo de um agente
+
+    Args:
+        agente_id: ID do agente
+
+    Returns:
+        Novo status ou None se nao encontrou
+    """
+    pool = await db_get_pool()
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            UPDATE agentes SET ativo = NOT ativo, updated_at = NOW()
+            WHERE id = $1
+            RETURNING ativo
+        """, agente_id)
+        return row["ativo"] if row else None
 
 
 # --- Compatibilidade (para transicao gradual) ---
