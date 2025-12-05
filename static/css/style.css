@@ -21,9 +21,9 @@
 
     /* Light Theme Defaults */
     --bg-body: #f5f5f7;
-    --bg-sidebar: rgba(255, 255, 255, 0.65);
-    --bg-card: rgba(255, 255, 255, 0.65);
-    --bg-glass: rgba(255, 255, 255, 0.65);
+    --bg-sidebar: #ffffff;
+    --bg-card: #ffffff;
+    --bg-glass: #ffffff;
     --glass-border: 1px solid rgba(255, 255, 255, 0.4);
     --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
 
@@ -40,11 +40,13 @@
 
 [data-theme="dark"] {
     /* Dark Theme Overrides */
-    --bg-body: #0d1117;
+    --bg-body: #050505;
+    /* Deep black-ish */
     /* Deep dark blue/gray */
-    --bg-sidebar: rgba(22, 27, 34, 0.7);
+    --bg-sidebar: #161b22;
+    /* Lighter/Distinct gray */
     --bg-card: rgba(22, 27, 34, 0.7);
-    --bg-glass: rgba(22, 27, 34, 0.7);
+    --bg-glass: #161b22;
     --glass-border: 1px solid rgba(255, 255, 255, 0.08);
     --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 
@@ -84,22 +86,35 @@ body {
     -webkit-backdrop-filter: blur(20px);
     border-right: var(--glass-border);
     height: 100dvh;
+    /* Dynamic viewport height */
     position: fixed;
+    /* Keep it fixed */
     top: 0;
     left: 0;
     width: 280px;
     padding-top: 2rem;
-    padding-bottom: 6rem;
+    padding-bottom: 8rem;
+    /* Extra space for bottom items */
     z-index: 1000;
     transition: width 0.3s ease, background 0.3s ease;
     overflow-y: auto;
+    /* Force independent scrollbar */
     overflow-x: hidden;
-    overscroll-behavior: contain;
 }
 
 /* Scrollbar styling for sidebar */
+.sidebar {
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE/Edge */
+}
+
 .sidebar::-webkit-scrollbar {
-    width: 6px;
+    display: none;
+    /* Chrome/Safari/Opera */
+    width: 0px;
+    background: transparent;
 }
 
 .sidebar::-webkit-scrollbar-track {
@@ -162,8 +177,11 @@ body {
 /* Main Content */
 .main-content {
     margin-left: 280px;
+    /* Restore margin */
     padding: 2.5rem;
     transition: margin-left 0.3s ease;
+    flex: 1;
+    /* Ensure it takes remaining space */
 }
 
 /* Sidebar Collapsed */
