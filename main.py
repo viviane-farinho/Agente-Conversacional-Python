@@ -28,6 +28,7 @@ from src.services.rag import get_rag_service
 from src.services.agenda import get_agenda_service, config_obter_int
 from src.agent.graph import get_agent
 from src.agent.multi.supervisor import SupervisorAgent
+from src.agent.advocacia.routes import router as advocacia_router
 
 
 # --- Modelos Pydantic ---
@@ -228,6 +229,9 @@ templates = Jinja2Templates(directory="templates")
 
 # Arquivos Estaticos
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Router de Advocacia (sistema independente)
+app.include_router(advocacia_router)
 
 # Sessoes ativas (em producao, usar Redis ou banco de dados)
 active_sessions: dict = {}
