@@ -16,7 +16,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.services.database import db_connect, db_get_pool
-from src.services.rag_multi import rag_multi_init_tables, rag_multi_add_document
+from src.services.rag_multi_infoprodutos import rag_multi_init_tables, rag_multi_add_document
 
 
 async def migrate(copiar_docs: bool = False):

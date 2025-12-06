@@ -5,7 +5,7 @@ Cada agente pode ter comportamento diferente na busca
 from typing import Optional, Annotated
 from langchain_core.tools import tool
 
-from src.services.rag_multi import (
+from src.services.rag_multi_infoprodutos import (
     rag_multi_service,
     rag_multi_log_pergunta_sem_resposta_sync,
     rag_multi_listar_produtos_sync,

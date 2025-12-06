@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, '.')
 
 from src.services.database import get_db_service
-from src.services.rag_multi import get_rag_multi_service, rag_multi_add_produto_sync
+from src.services.rag_multi_infoprodutos import get_rag_multi_service, rag_multi_add_produto_sync
 
 # ============================================
 # PRODUTOS DO INFOPRODUTOR - RAFAEL OLIVEIRA

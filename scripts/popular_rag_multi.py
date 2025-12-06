@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, '.')
 
 from src.services.database import get_db_service
-from src.services.rag_multi import get_rag_multi_service
+from src.services.rag_multi_infoprodutos import get_rag_multi_service
 
 # ============================================
 # DOCUMENTOS DO INFOPRODUTOR - RAFAEL OLIVEIRA

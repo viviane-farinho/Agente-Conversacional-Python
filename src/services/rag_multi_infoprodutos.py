@@ -153,7 +153,7 @@ async def rag_multi_init_tables() -> bool:
 
             # Tabela de documentos do Multi-Agente
             await conn.execute("""
-                CREATE TABLE IF NOT EXISTS empresa_documentos_multi (
+                CREATE TABLE IF NOT EXISTS empresa_documentos_multi_infoprodutos (
                     id SERIAL PRIMARY KEY,
                     titulo VARCHAR(255) NOT NULL,
                     categoria VARCHAR(100),
@@ -169,22 +169,22 @@ async def rag_multi_init_tables() -> bool:
             # Indice para categoria
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_documentos_multi_categoria
-                ON empresa_documentos_multi(categoria)
+                ON empresa_documentos_multi_infoprodutos(categoria)
             """)
 
             # Indice para agente
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_documentos_multi_agente
-                ON empresa_documentos_multi(agente)
+                ON empresa_documentos_multi_infoprodutos(agente)
             """)
 
             # Indice vetorial (se houver dados)
             try:
-                count = await conn.fetchval("SELECT COUNT(*) FROM empresa_documentos_multi")
+                count = await conn.fetchval("SELECT COUNT(*) FROM empresa_documentos_multi_infoprodutos")
                 if count > 0:
                     await conn.execute("""
                         CREATE INDEX IF NOT EXISTS idx_documentos_multi_embedding
-                        ON empresa_documentos_multi
+                        ON empresa_documentos_multi_infoprodutos
                         USING ivfflat (embedding vector_cosine_ops)
                         WITH (lists = 100)
                     """)
@@ -193,7 +193,7 @@ async def rag_multi_init_tables() -> bool:
 
             # Tabela de perguntas sem resposta do Multi-Agente (para feedback loop)
             await conn.execute("""
-                CREATE TABLE IF NOT EXISTS perguntas_sem_resposta_multi (
+                CREATE TABLE IF NOT EXISTS perguntas_sem_resposta_multi_infoprodutos (
                     id SERIAL PRIMARY KEY,
                     pergunta TEXT NOT NULL,
                     telefone VARCHAR(50),
@@ -203,7 +203,7 @@ async def rag_multi_init_tables() -> bool:
                     query_expandida TEXT,
                     docs_encontrados INTEGER DEFAULT 0,
                     resolvido BOOLEAN DEFAULT FALSE,
-                    documento_criado_id INTEGER REFERENCES empresa_documentos_multi(id),
+                    documento_criado_id INTEGER REFERENCES empresa_documentos_multi_infoprodutos(id),
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 )
             """)
@@ -211,13 +211,13 @@ async def rag_multi_init_tables() -> bool:
             # Indice para perguntas nao resolvidas
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_perguntas_multi_sem_resposta_resolvido
-                ON perguntas_sem_resposta_multi(resolvido, created_at DESC)
+                ON perguntas_sem_resposta_multi_infoprodutos(resolvido, created_at DESC)
             """)
 
             # Indice para agente
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_perguntas_multi_agente
-                ON perguntas_sem_resposta_multi(agente)
+                ON perguntas_sem_resposta_multi_infoprodutos(agente)
             """)
 
             _initialized = True
@@ -259,7 +259,7 @@ async def rag_multi_add_document(
 
     async with pool.acquire() as conn:
         result = await conn.fetchrow("""
-            INSERT INTO empresa_documentos_multi (titulo, categoria, agente, conteudo, embedding, metadata)
+            INSERT INTO empresa_documentos_multi_infoprodutos (titulo, categoria, agente, conteudo, embedding, metadata)
             VALUES ($1, $2, $3, $4, $5::vector, $6::jsonb)
             RETURNING id
         """, titulo, categoria, agente, conteudo, str(embedding), json.dumps(metadata or {}))
@@ -294,7 +294,7 @@ async def rag_multi_update_document(
     async with pool.acquire() as conn:
         # Busca documento atual
         current = await conn.fetchrow(
-            "SELECT * FROM empresa_documentos_multi WHERE id = $1",
+            "SELECT * FROM empresa_documentos_multi_infoprodutos WHERE id = $1",
             doc_id
         )
         if not current:
@@ -311,7 +311,7 @@ async def rag_multi_update_document(
         embedding = await _get_embedding_async(f"{titulo}\n{conteudo}")
 
         await conn.execute("""
-            UPDATE empresa_documentos_multi
+            UPDATE empresa_documentos_multi_infoprodutos
             SET titulo = $1, categoria = $2, agente = $3, conteudo = $4,
                 embedding = $5::vector, metadata = $6::jsonb,
                 updated_at = NOW()
@@ -335,7 +335,7 @@ async def rag_multi_delete_document(doc_id: int) -> bool:
 
     async with pool.acquire() as conn:
         result = await conn.execute(
-            "DELETE FROM empresa_documentos_multi WHERE id = $1",
+            "DELETE FROM empresa_documentos_multi_infoprodutos WHERE id = $1",
             doc_id
         )
         return "DELETE 1" in result
@@ -360,7 +360,7 @@ async def rag_multi_list_documents(
     pool = await db_get_pool()
 
     async with pool.acquire() as conn:
-        query = "SELECT id, titulo, categoria, agente, conteudo, metadata, created_at FROM empresa_documentos_multi WHERE 1=1"
+        query = "SELECT id, titulo, categoria, agente, conteudo, metadata, created_at FROM empresa_documentos_multi_infoprodutos WHERE 1=1"
         params = []
 
         if categoria:
@@ -402,7 +402,7 @@ async def rag_multi_get_categories() -> List[str]:
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT DISTINCT categoria
-            FROM empresa_documentos_multi
+            FROM empresa_documentos_multi_infoprodutos
             WHERE categoria IS NOT NULL
             ORDER BY categoria
         """)
@@ -440,7 +440,7 @@ def rag_multi_log_pergunta_sem_resposta_sync(
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO perguntas_sem_resposta_multi
+                INSERT INTO perguntas_sem_resposta_multi_infoprodutos
                 (pergunta, agente, motivo, query_expandida, docs_encontrados, telefone, conversation_id)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
@@ -472,7 +472,7 @@ async def rag_multi_log_pergunta_sem_resposta(
 
     async with pool.acquire() as conn:
         result = await conn.fetchrow("""
-            INSERT INTO perguntas_sem_resposta_multi
+            INSERT INTO perguntas_sem_resposta_multi_infoprodutos
             (pergunta, agente, motivo, query_expandida, docs_encontrados, telefone, conversation_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id
@@ -505,7 +505,7 @@ async def rag_multi_listar_perguntas_sem_resposta(
             SELECT id, pergunta, telefone, conversation_id, agente, motivo,
                    query_expandida, docs_encontrados, resolvido,
                    documento_criado_id, created_at
-            FROM perguntas_sem_resposta_multi
+            FROM perguntas_sem_resposta_multi_infoprodutos
             WHERE 1=1
         """
         params = []
@@ -558,7 +558,7 @@ async def rag_multi_marcar_pergunta_resolvida(
 
     async with pool.acquire() as conn:
         result = await conn.execute("""
-            UPDATE perguntas_sem_resposta_multi
+            UPDATE perguntas_sem_resposta_multi_infoprodutos
             SET resolvido = TRUE, documento_criado_id = $2
             WHERE id = $1
         """, pergunta_id, documento_criado_id)
@@ -581,27 +581,27 @@ async def rag_multi_contar_perguntas_sem_resposta(agente: str = None) -> dict:
     async with pool.acquire() as conn:
         if agente:
             total = await conn.fetchval(
-                "SELECT COUNT(*) FROM perguntas_sem_resposta_multi WHERE agente = $1",
+                "SELECT COUNT(*) FROM perguntas_sem_resposta_multi_infoprodutos WHERE agente = $1",
                 agente
             )
             nao_resolvidas = await conn.fetchval(
-                "SELECT COUNT(*) FROM perguntas_sem_resposta_multi WHERE resolvido = FALSE AND agente = $1",
+                "SELECT COUNT(*) FROM perguntas_sem_resposta_multi_infoprodutos WHERE resolvido = FALSE AND agente = $1",
                 agente
             )
             rows = await conn.fetch("""
                 SELECT motivo, COUNT(*) as count
-                FROM perguntas_sem_resposta_multi
+                FROM perguntas_sem_resposta_multi_infoprodutos
                 WHERE resolvido = FALSE AND agente = $1
                 GROUP BY motivo
             """, agente)
         else:
-            total = await conn.fetchval("SELECT COUNT(*) FROM perguntas_sem_resposta_multi")
+            total = await conn.fetchval("SELECT COUNT(*) FROM perguntas_sem_resposta_multi_infoprodutos")
             nao_resolvidas = await conn.fetchval(
-                "SELECT COUNT(*) FROM perguntas_sem_resposta_multi WHERE resolvido = FALSE"
+                "SELECT COUNT(*) FROM perguntas_sem_resposta_multi_infoprodutos WHERE resolvido = FALSE"
             )
             rows = await conn.fetch("""
                 SELECT motivo, COUNT(*) as count
-                FROM perguntas_sem_resposta_multi
+                FROM perguntas_sem_resposta_multi_infoprodutos
                 WHERE resolvido = FALSE
                 GROUP BY motivo
             """)
@@ -611,7 +611,7 @@ async def rag_multi_contar_perguntas_sem_resposta(agente: str = None) -> dict:
         # Agrupa por agente
         rows_agente = await conn.fetch("""
             SELECT agente, COUNT(*) as count
-            FROM perguntas_sem_resposta_multi
+            FROM perguntas_sem_resposta_multi_infoprodutos
             WHERE resolvido = FALSE
             GROUP BY agente
         """)
@@ -659,7 +659,7 @@ async def rag_multi_search_async(
             SELECT
                 id, titulo, categoria, agente, conteudo, metadata,
                 1 - (embedding <=> $1::vector) as similarity
-            FROM empresa_documentos_multi
+            FROM empresa_documentos_multi_infoprodutos
             WHERE 1 - (embedding <=> $1::vector) > $2
         """
         params = [str(query_embedding), similarity_threshold]
@@ -743,7 +743,7 @@ def rag_multi_search_sync(
             sql = f"""
                 WITH semantic AS (
                     SELECT id, 1 - (embedding <=> %s::vector) as semantic_score
-                    FROM empresa_documentos_multi
+                    FROM empresa_documentos_multi_infoprodutos
                     WHERE 1=1 {where_sql}
                 ),
                 fulltext AS (
@@ -752,7 +752,7 @@ def rag_multi_search_sync(
                                to_tsvector('portuguese', titulo || ' ' || conteudo),
                                plainto_tsquery('portuguese', %s)
                            ), 0) as fulltext_score
-                    FROM empresa_documentos_multi
+                    FROM empresa_documentos_multi_infoprodutos
                     WHERE 1=1 {where_sql}
                 )
                 SELECT
@@ -760,7 +760,7 @@ def rag_multi_search_sync(
                     s.semantic_score,
                     f.fulltext_score,
                     (0.7 * s.semantic_score + 0.3 * LEAST(f.fulltext_score * 2, 1)) as combined_score
-                FROM empresa_documentos_multi d
+                FROM empresa_documentos_multi_infoprodutos d
                 JOIN semantic s ON d.id = s.id
                 JOIN fulltext f ON d.id = f.id
                 WHERE (0.7 * s.semantic_score + 0.3 * LEAST(f.fulltext_score * 2, 1)) > %s
